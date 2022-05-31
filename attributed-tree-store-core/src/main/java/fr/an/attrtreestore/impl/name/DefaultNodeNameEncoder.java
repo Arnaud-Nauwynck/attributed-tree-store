@@ -95,7 +95,7 @@ public class DefaultNodeNameEncoder extends NodeNameEncoder {
 	 * override to force pathElts NodeName with level < internalizeMaxPathLevel to be internalized
 	 */
 	@Override
-	public NodeName[] encodePath(String[] pathElts) {
+	public NodeName[] encodePathNodeNames(String[] pathElts) {
 		val pathCount = pathElts.length;
 		val res = new NodeName[pathCount];
 		for(int i = 0; i < pathCount; i++) {
