@@ -20,7 +20,7 @@ import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.AttrInfoIndexes;
 import fr.an.attrtreestore.storage.api.NodeOverrideData;
 import fr.an.attrtreestore.storage.api.NodeOverrideStatus;
-import fr.an.attrtreestore.storage.api.PartialNodeDataByPath;
+import fr.an.attrtreestore.storage.api.PartialOverrideTreeNodeData;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.val;
@@ -37,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
  * using internally partial tree node 'PartialNodeEntry', containing 'Map<NodeName, PartialNodeEntry>'
  */
 @Slf4j
-public class AppendOnlyBlobStorage_PartialNodeDataByPath extends PartialNodeDataByPath {
+public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverrideTreeNodeData {
 
 	private static final String FILE_HEADER = "append-path-data";
 
@@ -66,7 +66,7 @@ public class AppendOnlyBlobStorage_PartialNodeDataByPath extends PartialNodeData
 		}
 		
 	}
-	
+
 	private final BlobStorage blobStorage;
 	@Getter
 	private final String baseFileName;
@@ -85,7 +85,7 @@ public class AppendOnlyBlobStorage_PartialNodeDataByPath extends PartialNodeData
 	
 	// ------------------------------------------------------------------------
 
-	public AppendOnlyBlobStorage_PartialNodeDataByPath(BlobStorage blobStorage, String baseFileName,
+	public AppendBlobStorage_PartialOverrideTreeNodeData(BlobStorage blobStorage, String baseFileName,
 			AttrInfoIndexes attrIndexes,
 			NodeNameEncoder nodeNameEncoder) {
 		this.blobStorage = blobStorage;

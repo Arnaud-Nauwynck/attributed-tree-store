@@ -429,5 +429,5 @@ public class Node {
 				+ ((sortedEntries.length > 0)? " " +sortedEntries.length + " child" : "")
 				+ ")";
 	}
-	
+
 }

@@ -22,7 +22,7 @@ import fr.an.attrtreestore.storage.AttrInfoIndexes;
 import fr.an.attrtreestore.storage.api.NodeOverrideStatus;
 import lombok.val;
 
-public class AppendOnlyBlobStorage_PartialNodeDataByPathTest {
+public class AppendBlobStorage_PartialOverrideTreeNodeDataTest {
 
 	private static final File baseDir = new File("target/test-data/PartialNodeDataByPathTest");
 	private static final BlobStorage blobStorage = new FileBlobStorage("test-data", baseDir);
@@ -49,11 +49,11 @@ public class AppendOnlyBlobStorage_PartialNodeDataByPathTest {
 			
 	@Test
 	public void test_put_get_remove() {
-		val sut = new AppendOnlyBlobStorage_PartialNodeDataByPath(
+		val sut = new AppendBlobStorage_PartialOverrideTreeNodeData(
 				blobStorage, "test1", attrIndexes, nodeNameEncoder);
 		sut.initCreateEmpty();
 		
-		Supplier<AppendOnlyBlobStorage_PartialNodeDataByPath> reloader = () -> reloadFromFile("test1");
+		Supplier<AppendBlobStorage_PartialOverrideTreeNodeData> reloader = () -> reloadFromFile("test1");
 		
 		// -- Step 1 --
 		NodeData data1_a_b_c = createDirData(c, ImmutableSet.of(d1, d2));
@@ -149,8 +149,8 @@ public class AppendOnlyBlobStorage_PartialNodeDataByPathTest {
 			0, 0, 0L); // lruCount, lruAmortizedCount, lastQueryTimestamp
 	}
 
-	private static AppendOnlyBlobStorage_PartialNodeDataByPath reloadFromFile(String baseFilename) {
-		val res = new AppendOnlyBlobStorage_PartialNodeDataByPath(
+	private static AppendBlobStorage_PartialOverrideTreeNodeData reloadFromFile(String baseFilename) {
+		val res = new AppendBlobStorage_PartialOverrideTreeNodeData(
 				blobStorage, "test1", attrIndexes, nodeNameEncoder);
 		res.initReload();
 		return res;
