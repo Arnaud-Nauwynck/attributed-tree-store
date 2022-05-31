@@ -39,6 +39,15 @@ public class FullInMem_TreeNodeData {
 			}
 			return sortedEntries.get(chldName);
 		}
+
+		@Override
+		public String toString() {
+			return "FullInMemNodeEntry [" + name 
+					+ ((sortedEntries != null && sortedEntries.size() != 0)? ", " + sortedEntries.size() + " child" : "")
+					+ "]";
+		}
+		
+		
 	}
 	
 	// ------------------------------------------------------------------------
@@ -48,7 +57,15 @@ public class FullInMem_TreeNodeData {
 
 	// ------------------------------------------------------------------------
 
+	public void put_root(NodeData data) {
+		rootNode.data = data;
+	}
+	
 	public void put_strictNoCreateParent(NodeNamesPath path, NodeData data) {
+		if (path == null || path.pathElements.length == 0) {
+			put_root(data);
+			return;
+		}
 		FullInMemNodeEntry parent = resolveParent(path);
 		if (parent == null) {
 			throw new IllegalArgumentException();
@@ -234,12 +251,13 @@ public class FullInMem_TreeNodeData {
 		node.dataAndChildFilePosLen = computeHelper.computeLen_nodeDataAndChildIndexes(node);
 
 		int childSum = 0;
-		for(val child: node.sortedEntries.values()) {
-			// ** recurse **
-			doRecursiveComputeDataLen(child, computeHelper);
-			childSum += child.recursiveDataLenSum; 
+		if (node.sortedEntries != null) {
+			for(val child: node.sortedEntries.values()) {
+				// ** recurse **
+				doRecursiveComputeDataLen(child, computeHelper);
+				childSum += child.recursiveDataLenSum; 
+			}
 		}
-
 		node.recursiveDataLenSum = childSum;
 	}
 
@@ -248,9 +266,11 @@ public class FullInMem_TreeNodeData {
 		node.synthetisedDataFilePos = startPos;
 		currPos += node.dataAndChildFilePosLen;
 		
-		for(val child: node.sortedEntries.values()) {
-			// ** recurse **
-			currPos = doRecursiveComputeFilePos(child, currPos);
+		if (node.sortedEntries != null) {
+			for(val child: node.sortedEntries.values()) {
+				// ** recurse **
+				currPos = doRecursiveComputeFilePos(child, currPos);
+			}
 		}
 		return currPos;
 	}

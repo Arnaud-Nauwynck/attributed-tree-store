@@ -12,12 +12,7 @@ import lombok.val;
 
 public class IndexedBlobStorage_TreeNodeDataEncoder {
 
-//	private static final String FILE_HEADER = "readonly-full-tree-data";
-
-//	private final BlobStorage blobStorage;
-//
-//	@Getter
-//	private final String fileName;
+	//	private static final String FILE_HEADER = "readonly-full-tree-data";
 
 	private final AttrDataEncoderHelper attrDataEncoderHelper;
 
