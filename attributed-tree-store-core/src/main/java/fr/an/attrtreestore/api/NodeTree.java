@@ -1,9 +1,9 @@
 package fr.an.attrtreestore.api;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
-import fr.an.attrtreestore.spi.NodeTreeLoader;
+import fr.an.attrtreestore.storage.NodeTreeLoader;
 
 /**
  * Tree of Node, either in-memory or cached on storage
@@ -30,8 +30,9 @@ public abstract class NodeTree {
 	/*pp*/ abstract NodeTreeLoader nodeTreeLoader();
 	
 	
-	public abstract Future<NodeAccessor> asyncResolvePath(String path);
+	public abstract CompletableFuture<NodeAccessor> asyncResolvePath(String path);
 	
+	/** blocking helper for asyncResolvePath() */
 	public NodeAccessor resolvePath(String path) {
 		try {
 			return asyncResolvePath(path).get();

@@ -8,9 +8,9 @@
 		<version>1.0.0-SNAPSHOT</version>
 	</parent>
 	
-    <artifactId>attributed-tree-store-core</artifactId>
+    <artifactId>attributed-tree-store-nio</artifactId>
 
-		
+	
     <dependencies>
 	
 		<dependency>

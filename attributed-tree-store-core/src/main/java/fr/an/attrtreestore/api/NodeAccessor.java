@@ -3,7 +3,7 @@ package fr.an.attrtreestore.api;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 
-import fr.an.attrtreestore.spi.Node;
+import fr.an.attrtreestore.impl.Node;
 import lombok.val;
 
 /**
@@ -85,7 +85,7 @@ public class NodeAccessor {
 		return new NodeAccessor(nodeTree, childPathNodes, childEltCount);
 	}
 
-	void navigateToChild(Node child) {
+	/*pp*/ void navigateToChild(Node child) {
 		val childCount = pathEltCount + 1;
 		val childPathNodes = new Node[childCount];
 		System.arraycopy(pathNodes, 0, childPathNodes, 0, pathEltCount);
