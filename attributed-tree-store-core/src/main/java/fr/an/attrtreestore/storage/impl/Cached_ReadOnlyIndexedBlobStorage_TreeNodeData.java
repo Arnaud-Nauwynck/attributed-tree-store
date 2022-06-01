@@ -1,7 +1,6 @@
 package fr.an.attrtreestore.storage.impl;
 
 import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.IOException;
@@ -42,8 +41,6 @@ public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeData extends ReadOnlyCach
 
 	private int maxBufferSize = 32 * 1024; // 32ko ... may use 4ko for TCP message: 1 call ~ 4k ??
 	private int defaultFetchSize = 128 * 1024; // 128ko ?? ... will force many more calls to storage, to fill cache more aggressively? 
-	
-	private int tryParseEntryThresholdSize = 100;
 
 	@Getter
 	private long cacheMiss = 0;
