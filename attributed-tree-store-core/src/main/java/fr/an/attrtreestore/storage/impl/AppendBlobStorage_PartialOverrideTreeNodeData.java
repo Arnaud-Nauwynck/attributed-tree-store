@@ -49,6 +49,12 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 		private long dataFilePos;
 		private int dataLen;
 		private NodeData cachedData;
+
+		void setMarkDisposed() {
+			this.overrideStatus = null; // NodeOverrideStatus.INTERNAL_ENTRY_DISPOSED; // ??
+			this.child = null;
+			this.cachedData = null;
+		}
 		
 		void setOverrideData(NodeOverrideStatus overrideStatus, long dataFilePos, int dataLen, NodeData cachedData) {
 			this.overrideStatus = overrideStatus;
@@ -243,7 +249,7 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 			return;
 		}
 		
-		Map<NodeName,PartialNodeEntry> gcChildMap = null;
+		Map<NodeName,PartialNodeEntry> recursiveDisposeChildMap = null;
 		synchronized(writeLock) {
 			// compute byte data payload to be appended
 			try(val out = new DataOutputStream(dataBuffer)) {
@@ -267,14 +273,14 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 				entry.setOverrideData(NodeOverrideStatus.DELETED, 0, 0, null);
 				
 				// remove all sub-child overrides if any
-				gcChildMap = entry.child;  // => optim, to help GC (?)
-				entry.child = null; // => implicit remove all
+				recursiveDisposeChildMap = entry.child;
+				entry.setMarkDisposed();
 			}
 		} // synchronized writeLock
 		
-		// help gc: free references
-		if (gcChildMap != null) {
-			recursiveClearMap(gcChildMap);
+		// change status to null (INTERNAL_ENTRY_DISPOSED) + help gc by clearing references
+		if (recursiveDisposeChildMap != null) {
+			recursiveMarkDisposed(recursiveDisposeChildMap);
 		}
 	}
 	
@@ -285,27 +291,29 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 			return;
 		}
 		
-		Map<NodeName,PartialNodeEntry> gcChildMap = null;
+		Map<NodeName,PartialNodeEntry> recursiveDisposeChildMap = null;
 			
 		// update in-memory: mark as 'DELETED' + remove all sub-child if any
 		synchronized(entry) { // useless redundant lock?
 			entry.setOverrideData(NodeOverrideStatus.DELETED, 0, 0, null);
 			
 			// remove all sub-child overrides if any
-			gcChildMap = entry.child;  // => optim, to help GC (?)
-			entry.child = null; // => implicit remove all
+			recursiveDisposeChildMap = entry.child;
+			entry.setMarkDisposed();
 		}
 		
-		// help gc: free references
-		if (gcChildMap != null) {
-			recursiveClearMap(gcChildMap);
+		// change status to null (INTERNAL_ENTRY_DISPOSED) + help gc by clearing references
+		if (recursiveDisposeChildMap != null) {
+			recursiveMarkDisposed(recursiveDisposeChildMap);
 		}
 	}
 	
-	private static void recursiveClearMap(Map<NodeName,PartialNodeEntry> map) {
+	private static void recursiveMarkDisposed(Map<NodeName,PartialNodeEntry> map) {
 		for (val e: map.values()) {
-			if (e.child != null) {
-				recursiveClearMap(e.child);
+			val childMap = e.child;
+			e.setMarkDisposed();
+			if (childMap != null) {
+				recursiveMarkDisposed(childMap);
 			}
 		}
 		map.clear();

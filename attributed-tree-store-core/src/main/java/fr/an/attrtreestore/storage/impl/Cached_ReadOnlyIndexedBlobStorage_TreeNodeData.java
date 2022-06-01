@@ -2,24 +2,29 @@ package fr.an.attrtreestore.storage.impl;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
 
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
+import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions;
 import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.storage.api.ReadOnlyCached_TreeNodeData;
+import fr.an.attrtreestore.storage.impl.IndexedBlobStorage_TreeNodeDataEncoder.NodeDataAndChildFilePos;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.val;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 
  */
+@Slf4j
 public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeData extends ReadOnlyCached_TreeNodeData {
-	
+
 	private final BlobStorage blobStorage;
 
 	@Getter
@@ -31,7 +36,10 @@ public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeData extends ReadOnlyCach
 	
 	private final long fileLen; // computed from blobStorage + fileName at init
 
-	private int fetchBlockSize = 4096; //
+	private int fetchBlockSize = 32 * 1024; // 32k should be enough to load most data + childNames??
+	// ( may use 128k..1M for full recursive batches, cf also preload at init)
+	
+	private int tryParseEntryThresholdSize = 100;
 	
 	/**
 	 * partially loaded Node... 
@@ -43,15 +51,15 @@ public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeData extends ReadOnlyCach
 	@RequiredArgsConstructor //?
 	@AllArgsConstructor
 	private static class CachedNodeEntry {
-		private final NodeName name;
+		final NodeName name;
 		
-		private long dataFilePos;
+		long dataFilePos;
 		// private int dataLen; // .. redundant with filePos 
-		private NodeData cachedData;
+		NodeData cachedData;
 
 		// when loaded => downcast to CachedNodeEntry
-		// else => downcast to ChildEntryHandle 
-		private Object[] sortedEntries;
+		// else => downcast to NodeEntryHandle 
+		Object[] sortedEntries;
 
 		int findChildIndex(NodeName childName) {
 			// dichotomy search child index by name
@@ -94,8 +102,24 @@ public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeData extends ReadOnlyCach
 		
 		this.fileLen = blobStorage.fileLen(fileName);
 		
-		// load at least the root node, maybe few others recursively..
-		this.rootNode = null;  TODO ..
+		// init the root node, dataFilePos fixed known in file 
+		// field 'rootNode' is final, so must be set in ctor... 
+		val rootName = DefaultNodeNameEncoderOptions.EMPTY_NAME;
+		val rootDataFilePos = IndexedBlobStorage_TreeNodeDataEncoder.FIXED_ROOT_FILEPOS;
+		this.rootNode = new CachedNodeEntry(rootName, rootDataFilePos, 
+				null, // cachedData... can be null, and filePos is set to reload it 
+				null // <= sortedEntries ... must be loaded in init!!
+				);
+
+		// initialize rootNode content!! (data + corresponding sortedEntries)
+		val rootHandle = new NodeEntryHandle(rootName, rootDataFilePos);
+		val loadedRootNode = doLoadCachedNodeEntry(rootHandle);
+		synchronized(this.rootNode) {
+			this.rootNode.cachedData = loadedRootNode.cachedData;
+			this.rootNode.sortedEntries = loadedRootNode.sortedEntries;
+		}
+
+		// TOADD preload, maybe few others recursively..
 
 	}
 
@@ -142,36 +166,191 @@ public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeData extends ReadOnlyCach
 	private CachedNodeEntry doLoadCachedNodeEntry(NodeEntryHandle entryHandle) {
 		CachedNodeEntry res;
 		val dataFilePos = entryHandle.dataFilePos;
-		int fetchDataLen = Math.min(fetchBlockSize, (int) (fileLen - dataFilePos));
+		int maxReadLen = (int) (fileLen - dataFilePos);
+		int fetchDataLen = Math.min(fetchBlockSize, maxReadLen);
 		
 		byte[] fetchData = blobStorage.readAt(fileName, dataFilePos, fetchDataLen);
-		// TODO check read enough..
 
 		val name = entryHandle.name;
-		try (val in = new DataInputStream(new ByteArrayInputStream(fetchData))) {
-			
-			val dataAndChildPos = indexedTreeNodeDataEncoder.readNodeDataAndChildIndexes(in, name);
-			
-			val cachedData = dataAndChildPos.nodeData;
-			val childDataFilePos = dataAndChildPos.childDataFilePos;
-			// rebuild sortedEntries from childNames + childDataFilePos 
-			val childNames = new ArrayList<NodeName>(cachedData.childNames);
-			val childCount = childNames.size(); // assume sorted by NodeName!
-			Object[] sortedEntries = new Object[childCount];
-			for(int i = 0; i < childCount; i++) {
-				val childName = childNames.get(i);
-				sortedEntries[i] = new NodeEntryHandle(childName, childDataFilePos[i]);
+		NodeDataAndChildFilePos dataAndChildPos = null;
+		
+		// check read enough data
+		// no dataLen written in file for skip ??... would need anyway to do 2 remote calls, 1 to read size, then 1 to read data..
+		ByteArrayInputStream fetchDataStream = new ByteArrayInputStream(fetchData);
+		int fetchDataStreamLen = fetchData.length;
+		{
+			boolean needMoreData = false;
+			try (val in = new DataInputStream(fetchDataStream)) {
+				dataAndChildPos = indexedTreeNodeDataEncoder.readNodeDataAndChildIndexes(in, name);
+			} catch(EOFException ex) {
+				// ok not enough data => need to load more (maybe with retry loop..)
+				needMoreData = true;
+			} catch(Exception ex) {
+				throw new RuntimeException("should not occur", ex);
 			}
-			
-			res = new CachedNodeEntry(name, dataFilePos, cachedData, sortedEntries);
-			
-			// TOADD ... also parse recursively few other entries from fetchedData...
-			
-		} catch(IOException ex) {
-			throw new RuntimeException("Failed to load", ex);
+			if (needMoreData) {
+				long currFetchedPos = dataFilePos + fetchData.length;
+				int currFetchBlockSize = fetchBlockSize;
+				int maxRetry = 10;
+				for(int retry = 0; retry < maxRetry; retry++) {
+					// load more data..
+					int fetchMoreDataLen = Math.min(currFetchBlockSize, (int) (fileLen - currFetchedPos));
+					byte[] fetchMoreData = blobStorage.readAt(fileName, currFetchedPos, fetchMoreDataLen);
+					byte[] concatData = new byte[fetchData.length + fetchMoreData.length];
+					System.arraycopy(fetchData, 0, concatData, 0, fetchData.length);
+					System.arraycopy(fetchMoreData, 0, concatData, fetchData.length, fetchMoreData.length);
+					fetchData = concatData;
+					fetchMoreData = concatData = null;
+					fetchDataStream = new ByteArrayInputStream(fetchData);
+					fetchDataStreamLen = fetchData.length;
+					
+					// retry parse fetchedData
+					try (val in = new DataInputStream(fetchDataStream)) {
+						dataAndChildPos = indexedTreeNodeDataEncoder.readNodeDataAndChildIndexes(in, name);
+					} catch(EOFException ex) {
+						// ok not enough data => load more and retry..
+						if (retry+1 < maxRetry) {
+							// increase size and retry more
+							currFetchBlockSize = currFetchBlockSize + fetchBlockSize + currFetchBlockSize/2;
+						} else {
+							throw new RuntimeException("EOF trying to read entryData at filePos:" + dataFilePos + " using " + fetchData.length + " bytes");
+						}
+					} catch(Exception ex) {
+						throw new RuntimeException("should not occur", ex);
+					}
+				}
+			}
+		}
+				
+		res = dataAndChildPosToCachedEntry(name, dataFilePos, dataAndChildPos);
+		
+		long remainFetchedLen = fetchDataStream.available();
+		if (remainFetchedLen > tryParseEntryThresholdSize) {
+			// also try parse recursively few other entries from fetchedData
+			try {
+				long currDataFilePos = dataFilePos + (fetchDataStreamLen - remainFetchedLen);
+				tryParseAndAddCachedRecursiveChildList(res, fetchDataStream, currDataFilePos);
+			} catch(Exception ex) {
+				log.error("Failed to load more entries from prefetched data.. ignore", ex);
+			}
 		}
 		return res;
 	}
+
+	private CachedNodeEntry dataAndChildPosToCachedEntry(NodeName name, long dataFilePos, NodeDataAndChildFilePos dataAndChildPos) {
+		CachedNodeEntry res;
+		val cachedData = dataAndChildPos.nodeData;
+		val childDataFilePos = dataAndChildPos.childDataFilePos;
+		// rebuild sortedEntries from childNames + childDataFilePos 
+		val childNames = new ArrayList<NodeName>(cachedData.childNames);
+		val childCount = childNames.size(); // assume sorted by NodeName!
+		Object[] sortedEntries = new Object[childCount];
+		for(int i = 0; i < childCount; i++) {
+			val childName = childNames.get(i);
+			sortedEntries[i] = new NodeEntryHandle(childName, childDataFilePos[i]);
+		}
+		
+		res = new CachedNodeEntry(name, dataFilePos, cachedData, sortedEntries);
+		return res;
+	}
+
+	private void tryParseAndAddCachedRecursiveChildList(CachedNodeEntry node, 
+			ByteArrayInputStream remainIn, final long fromDataFilePos) {
+		// 'node' data already loaded.. only recurse on child list
+		val childNames = node.cachedData.childNames;
+		if (childNames != null && !childNames.isEmpty()) {
+			val childNameLs = new ArrayList<>(childNames);
+			val childNameCount = childNameLs.size();
+			
+			long currFilePos = fromDataFilePos; // incremented while reading, using remainIn.available()
+			
+			for(int i = 0; i < childNameCount; i++) {
+				val childName = childNameLs.get(i);
+				long remainBefore = remainIn.available();
+				if (remainBefore < tryParseEntryThresholdSize) {
+					break; // do not even try.. will probably fail
+				}
+
+				val childEntry = recursiveTryParse(childName, remainIn, currFilePos);
+
+				setLoadedChild(node, i, childName, childEntry);
+				
+				val remainAfter = remainIn.available();
+				currFilePos += remainBefore - remainAfter;
+			}
+		}
+	}
+
+	private void setLoadedChild(CachedNodeEntry node, int i, final fr.an.attrtreestore.api.NodeName childName,
+			final fr.an.attrtreestore.storage.impl.Cached_ReadOnlyIndexedBlobStorage_TreeNodeData.CachedNodeEntry childEntry) {
+		if (childEntry != null) {
+			// ensure update with same name + dataFilePos
+			val prevEntry = node.sortedEntries[i];
+			if (prevEntry instanceof NodeEntryHandle) {
+				val nh = (NodeEntryHandle) prevEntry;
+				if (nh.dataFilePos != childEntry.dataFilePos
+						|| !nh.name.equals(childName)) {
+					throw new IllegalStateException("internal check failed: loaded entry[" + i + "] '" + nh.name + "'" 
+							+ " with dataFilePos:" + childEntry.dataFilePos
+							+ ", expecting dataFilePos:" + nh.dataFilePos
+							+ ((nh.name.equals(childName))? "" : " '" + nh.name + "'")
+							);
+				}
+			} else {
+				log.error("should not occur?? loading and entry already loaded (maybe in different threads)");
+			}
+					
+			node.sortedEntries[i] = childEntry;
+		}
+	}
+
+	private CachedNodeEntry recursiveTryParse(NodeName name, 
+			ByteArrayInputStream remainIn, final long fromDataFilePos) {
+		long currFilePos = fromDataFilePos; // incremented while reading, using remainIn.available()
+		val remainBeforeData = remainIn.available();
+
+		NodeDataAndChildFilePos dataAndChildPos;
+		try {
+			DataInputStream in = new DataInputStream(remainIn);
+			dataAndChildPos = indexedTreeNodeDataEncoder.readNodeDataAndChildIndexes(in, name);
+		} catch(EOFException ex) {
+			// ok, can occur ..ignore, no rethrow
+			return null;
+		} catch (IOException ex) {
+			log.error("should not occur", ex);
+			return null;
+		}
+		val resEntry = dataAndChildPosToCachedEntry(name, fromDataFilePos, dataAndChildPos);
+
+		val remainAfterData = remainIn.available();
+		currFilePos += remainBeforeData - remainAfterData;
+		
+		// recurse on child list if any
+		val childNames = resEntry.cachedData.childNames;
+		if (childNames != null && !childNames.isEmpty()) {
+			val childNameLs = new ArrayList<>(childNames);
+			val childNameCount = childNameLs.size();
+						
+			for(int i = 0; i < childNameCount; i++) {
+				val childName = childNameLs.get(i);
+				long remainBeforeChild = remainIn.available();
+				if (remainBeforeChild < tryParseEntryThresholdSize) {
+					break; // do not even try.. will probably fail
+				}
+				
+				// *** recurse ***
+				val childEntry = recursiveTryParse(childName, remainIn, currFilePos);
+
+				setLoadedChild(resEntry, i, childName, childEntry);
+
+				long remainAfterChild = remainIn.available();
+				currFilePos += remainAfterChild - remainBeforeChild;
+			}
+		}
+
+		return resEntry;
+	}
+	
 	
 //	public CompletableFuture<Node[]> asyncLoadChildArray(NodeTreeLoader ownerLoader) {
 //		val childCount = sortedEntries.length;

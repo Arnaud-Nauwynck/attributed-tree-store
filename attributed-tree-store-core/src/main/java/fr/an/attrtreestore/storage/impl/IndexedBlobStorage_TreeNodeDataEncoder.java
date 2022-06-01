@@ -14,6 +14,8 @@ public class IndexedBlobStorage_TreeNodeDataEncoder {
 
 	//	private static final String FILE_HEADER = "readonly-full-tree-data";
 
+	public static final long FIXED_ROOT_FILEPOS = 0;
+	
 	private final AttrDataEncoderHelper attrDataEncoderHelper;
 
 	// ------------------------------------------------------------------------

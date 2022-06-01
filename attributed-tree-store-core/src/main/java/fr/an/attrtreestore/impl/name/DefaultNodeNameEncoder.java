@@ -11,7 +11,7 @@ import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.api.name.NodeNameEncoderOption;
 import fr.an.attrtreestore.api.name.NodeNameEncoderOption.EncodeSizeResult;
-import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions.StringNodeName;
+import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions.CharArrayNodeName;
 import lombok.val;
 
 public class DefaultNodeNameEncoder extends NodeNameEncoder {
@@ -85,8 +85,8 @@ public class DefaultNodeNameEncoder extends NodeNameEncoder {
 		}
 		
 		if (res == null) {
-			// fallback, encode using default StringNodeName
-			res = new StringNodeName(name);
+			// fallback, encode using default CharArrayNodeName
+			res = new CharArrayNodeName(name.toCharArray());
 		}
 		return res;
 	}
