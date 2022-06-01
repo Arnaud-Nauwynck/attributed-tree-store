@@ -74,7 +74,7 @@ public class FullInMem_TreeNodeData {
 		if (parent == null) {
 			throw new IllegalArgumentException();
 		}
-		val childName = path.pathElements[path.pathElements.length - 1];
+		val childName = path.lastName();
 		val foundChildEntry = parent.getChild(childName);
 		if (foundChildEntry != null) {
 			// update data..
@@ -117,7 +117,8 @@ public class FullInMem_TreeNodeData {
 		if (parent.sortedEntries == null) {
 			return; // ok: no child to remove
 		}
-		val removed = parent.sortedEntries.remove(path);
+		val childName = path.lastName();
+		val removed = parent.sortedEntries.remove(childName);
 		if (removed == null) {
 			// no child removed
 		} else {
