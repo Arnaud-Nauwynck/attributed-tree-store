@@ -3,6 +3,7 @@ package fr.an.attrtreestore.storage.api;
 import java.io.File;
 import java.util.Collections;
 
+import org.junit.Assert;
 import org.junit.Test;
 
 import com.google.common.collect.ImmutableMap;
@@ -18,7 +19,10 @@ import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.spi.FileBlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.AttrInfoIndexes;
+import fr.an.attrtreestore.storage.api.ReadOnlyCached_TreeNodeData.IndexedBlobStorageInitMode;
+import fr.an.attrtreestore.storage.impl.Cached_ReadOnlyIndexedBlobStorage_TreeNodeData;
 import fr.an.attrtreestore.storage.impl.IndexedBlobStorage_TreeNodeDataEncoder;
+import lombok.Getter;
 import lombok.val;
 
 public class FullInMem_TreeNodeDataTest {
@@ -64,21 +68,57 @@ public class FullInMem_TreeNodeDataTest {
 		
 		// fill recursive some data..
 		sut.put_root(createDirData(root, ImmutableSet.of(a)));
-		sut.put_strictNoCreateParent(PATH_a, createDirData(a, ImmutableSet.of(b)));
-		sut.put_strictNoCreateParent(PATH_a_b, createDirData(b, ImmutableSet.of(c)));
-		sut.put_strictNoCreateParent(PATH_a_b_c, createDirData(c, ImmutableSet.of(d1, d2, d3)));
-		sut.put_strictNoCreateParent(PATH_a_b_c_d1, createDirData(d1, ImmutableSet.of(e1)));
-		sut.put_strictNoCreateParent(PATH_a_b_c_d1_e1, createDirData(e1, ImmutableSet.of()));
-		sut.put_strictNoCreateParent(PATH_a_b_c_d2, createDirData(d2, ImmutableSet.of()));
-		sut.put_strictNoCreateParent(PATH_a_b_c_d3, createDirData(d3, ImmutableSet.of()));
+		
+		val data_a = createDirData(a, ImmutableSet.of(b));
+		sut.put_strictNoCreateParent(PATH_a, data_a);
+
+		val data_a_b = createDirData(b, ImmutableSet.of(c));
+		sut.put_strictNoCreateParent(PATH_a_b, data_a_b);
+		
+		NodeData data_a_b_c = createDirData(c, ImmutableSet.of(d1, d2, d3));
+		sut.put_strictNoCreateParent(PATH_a_b_c, data_a_b_c);
+		
+		NodeData data_a_b_c_d1 = createDirData(d1, ImmutableSet.of(e1));
+		sut.put_strictNoCreateParent(PATH_a_b_c_d1, data_a_b_c_d1);
+		
+		NodeData data_a_b_c_d1_e1 = createDirData(e1, ImmutableSet.of());
+		sut.put_strictNoCreateParent(PATH_a_b_c_d1_e1, data_a_b_c_d1_e1);
+		
+		NodeData data_a_b_c_d2 = createDirData(d2, ImmutableSet.of());
+		sut.put_strictNoCreateParent(PATH_a_b_c_d2, data_a_b_c_d2);
+		
+		NodeData data_a_b_c_d3 = createDirData(d3, ImmutableSet.of());
+		sut.put_strictNoCreateParent(PATH_a_b_c_d3, data_a_b_c_d3);
 		
 		// write to file
-		sut.recursiveWriteFull(blobStorage, "test-full-treedata1", indexedEncoder);
+		String fileName = "test-full-treedata1";
+		sut.recursiveWriteFull(blobStorage, fileName, indexedEncoder);
 		
-		// TODO re-read full file... and navigate + compare
+		// re-read full file... and navigate + compare
+		{
+			val sutReload = new Cached_ReadOnlyIndexedBlobStorage_TreeNodeData(blobStorage, fileName, indexedEncoder, 
+					IndexedBlobStorageInitMode.RELOAD_FULL, -1);
+			
+			get_assertDirData(data_a_b_c, sutReload, PATH_a_b_c);
+			get_assertDirData(data_a_b_c_d1, sutReload, PATH_a_b_c_d1);
+			get_assertDirData(data_a_b_c_d2, sutReload, PATH_a_b_c_d2);
+			get_assertDirData(data_a_b_c_d3, sutReload, PATH_a_b_c_d3);
+			get_assertDirData(data_a_b_c_d1_e1, sutReload, PATH_a_b_c_d1_e1);
+			get_assertDirData(data_a_b_c, sutReload, PATH_a_b_c); // already queryed before  (lastQueryTime / lru may change)
+		}
+		
+		// re-read only file with root .. and navigate with cache resolver + compare
+		{
+			val sutReload = new Cached_ReadOnlyIndexedBlobStorage_TreeNodeData(blobStorage, fileName, indexedEncoder, 
+					IndexedBlobStorageInitMode.RELOAD_ROOT_ONLY, 100); // small size => load only 1 entry...
 
-		// TODO re-read only file with root .. and navigate with cache resolver + compare
-
+			get_assertDirData(data_a_b_c, sutReload, PATH_a_b_c); // .. load more (using defaultFetchSize => load all remaining?)
+			get_assertDirData(data_a_b_c_d1, sutReload, PATH_a_b_c_d1);
+			get_assertDirData(data_a_b_c_d2, sutReload, PATH_a_b_c_d2);
+			get_assertDirData(data_a_b_c_d3, sutReload, PATH_a_b_c_d3);
+			get_assertDirData(data_a_b_c_d1_e1, sutReload, PATH_a_b_c_d1_e1);
+			get_assertDirData(data_a_b_c, sutReload, PATH_a_b_c); // already queryed before  (lastQueryTime / lru may change)
+		}
 	}
 
 	private NodeData createDirData(NodeName name, ImmutableSet<NodeName> childNames) {
@@ -92,5 +132,27 @@ public class FullInMem_TreeNodeDataTest {
 			0L, // field1Long;
 			clockModif++, // lastModifTimestamp;
 			0, 0, 0L); // lruCount, lruAmortizedCount, lastQueryTimestamp
+	}
+	
+	private static NodeData get_assertDirData(NodeData expected,
+			Cached_ReadOnlyIndexedBlobStorage_TreeNodeData tree, 
+			NodeNamesPath path) {
+		val actual = tree.get(path);
+		Assert.assertNotNull(actual);
+		Assert.assertEquals(expected.name, path.lastName());
+		Assert.assertEquals(expected.name, actual.name);
+		
+		Assert.assertEquals(expected.type, actual.type);
+		Assert.assertEquals(expected.mask, actual.mask);
+		// TOADD assertEquals childNames; 
+		// TOADD assertEquals attrs;
+
+		Assert.assertEquals(expected.creationTime, actual.creationTime);
+		Assert.assertEquals(expected.lastModifiedTime, actual.lastModifiedTime);
+		Assert.assertEquals(expected.field1Long, actual.field1Long);
+		Assert.assertEquals(expected.getLastModifTimestamp(), actual.getLastModifTimestamp());
+		// lruCount... may differ 
+		
+		return actual;
 	}
 }

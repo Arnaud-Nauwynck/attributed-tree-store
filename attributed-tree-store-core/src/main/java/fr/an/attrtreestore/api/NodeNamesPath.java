@@ -28,6 +28,11 @@ public final class NodeNamesPath {
 
 	// ------------------------------------------------------------------------
 
+	public NodeName lastName() {
+		return pathElements[pathElements.length-1];
+	}
+
+	
 	public String toPathSlash() {
 		StringBuilder sb = new StringBuilder(50 + 20 * pathElements.length);
 		val len = pathElements.length;

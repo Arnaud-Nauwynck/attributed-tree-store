@@ -52,7 +52,7 @@ public class NodeData {
 	@Override
 	public String toString() {
 		return name.toText() + " (type: " + type //
-				+ ((childNames.size() > 0)? " " + childNames.size() + " child" : "")
+				+ ((childNames.size() > 0)? ", " + childNames.size() + " child" : "")
 				+ ")";
 	}
 	
