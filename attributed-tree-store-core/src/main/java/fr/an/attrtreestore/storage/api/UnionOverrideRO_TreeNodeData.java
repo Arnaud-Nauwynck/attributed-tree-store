@@ -13,7 +13,7 @@ import lombok.val;
 public class UnionOverrideRO_TreeNodeData {
 
 	@Getter
-	protected final ReadOnlyCached_TreeNodeData baseReadOnlyTree;
+	protected final ROCached_TreeNodeData baseReadOnlyTree;
 
 	@Getter
 	protected final PartialOverrideTreeNodeData overrideTree;
@@ -21,7 +21,7 @@ public class UnionOverrideRO_TreeNodeData {
 	// ------------------------------------------------------------------------
 	
 	public UnionOverrideRO_TreeNodeData(
-			ReadOnlyCached_TreeNodeData baseReadOnlyTree,
+			ROCached_TreeNodeData baseReadOnlyTree,
 			PartialOverrideTreeNodeData overrideTree) {
 		this.baseReadOnlyTree = baseReadOnlyTree;
 		this.overrideTree = overrideTree;

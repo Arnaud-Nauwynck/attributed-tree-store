@@ -14,11 +14,11 @@ import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.spi.FileBlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.AttrInfoIndexes;
-import fr.an.attrtreestore.storage.api.ReadOnlyCached_TreeNodeData.IndexedBlobStorageInitMode;
+import fr.an.attrtreestore.storage.api.ROCached_TreeNodeData.IndexedBlobStorageInitMode;
 import fr.an.attrtreestore.storage.api.TreeTstObj;
 import lombok.val;
 
-public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeDataTest {
+public class CachedROIndexedBlobStorage_TreeNodeDataTest {
 	
 	private static final File baseDir = new File("target/test-data/CachedReadOnlyIndexed");
 	private static final BlobStorage blobStorage = new FileBlobStorage("test-data", baseDir);
@@ -44,7 +44,7 @@ public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeDataTest {
 		
 		// re-read full file... and navigate + compare
 		{
-			val sutReload = new Cached_ReadOnlyIndexedBlobStorage_TreeNodeData(blobStorage, fileName, indexedEncoder, 
+			val sutReload = new CachedROIndexedBlobStorage_TreeNodeData(blobStorage, fileName, indexedEncoder, 
 					IndexedBlobStorageInitMode.RELOAD_FULL, -1);
 			
 			val cacheHit0 = sutReload.getCacheHit();
@@ -69,7 +69,7 @@ public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeDataTest {
 		
 		// re-read only file with root .. and navigate with cache resolver + compare
 		{
-			val sutReload = new Cached_ReadOnlyIndexedBlobStorage_TreeNodeData(blobStorage, fileName, indexedEncoder, 
+			val sutReload = new CachedROIndexedBlobStorage_TreeNodeData(blobStorage, fileName, indexedEncoder, 
 					IndexedBlobStorageInitMode.RELOAD_ROOT_ONLY, 100); // small size => load only 1 entry...
 
 			get_assertDirData(src.data_a_b_c, sutReload, TreeTstObj.PATH_a_b_c);
@@ -97,7 +97,7 @@ public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeDataTest {
 	}
 
 	private static NodeData get_assertDirData(NodeData expected,
-			Cached_ReadOnlyIndexedBlobStorage_TreeNodeData tree, 
+			CachedROIndexedBlobStorage_TreeNodeData tree, 
 			NodeNamesPath path) {
 		val actual = tree.get(path);
 		Assert.assertNotNull(actual);

@@ -14,7 +14,7 @@ import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions;
 import fr.an.attrtreestore.spi.BlobStorage;
-import fr.an.attrtreestore.storage.api.ReadOnlyCached_TreeNodeData;
+import fr.an.attrtreestore.storage.api.ROCached_TreeNodeData;
 import fr.an.attrtreestore.storage.impl.IndexedBlobStorage_TreeNodeDataEncoder.NodeDataAndChildFilePos;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
  * 
  */
 @Slf4j
-public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeData extends ReadOnlyCached_TreeNodeData {
+public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeNodeData {
 	
 	private final BlobStorage blobStorage;
 
@@ -100,7 +100,7 @@ public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeData extends ReadOnlyCach
 	
 	// ------------------------------------------------------------------------
 	
-	public Cached_ReadOnlyIndexedBlobStorage_TreeNodeData(BlobStorage blobStorage, String fileName,
+	public CachedROIndexedBlobStorage_TreeNodeData(BlobStorage blobStorage, String fileName,
 			IndexedBlobStorage_TreeNodeDataEncoder indexedTreeNodeDataEncoder,
 			IndexedBlobStorageInitMode initMode, long initPrefetchSize) {
 		this.blobStorage = blobStorage;

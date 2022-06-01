@@ -3,7 +3,7 @@ package fr.an.attrtreestore.storage.api;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeNamesPath;
 
-public abstract class ReadOnlyCached_TreeNodeData {
+public abstract class ROCached_TreeNodeData {
 
 	public enum IndexedBlobStorageInitMode {
 		RELOAD_ROOT_ONLY,
