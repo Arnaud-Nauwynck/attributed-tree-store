@@ -44,6 +44,11 @@ public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeData extends ReadOnlyCach
 	private int defaultFetchSize = 128 * 1024; // 128ko ?? ... will force many more calls to storage, to fill cache more aggressively? 
 	
 	private int tryParseEntryThresholdSize = 100;
+
+	@Getter
+	private long cacheMiss = 0;
+	@Getter
+	private long cacheHit = 0;
 	
 	/**
 	 * partially loaded Node... 
@@ -170,10 +175,12 @@ public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeData extends ReadOnlyCach
 				return null;
 			}
 			if (childObj instanceof CachedNodeEntry) {
-				currEntry = (CachedNodeEntry) childObj; 
+				currEntry = (CachedNodeEntry) childObj;
+				cacheHit++;
 			} else { // NodeEntryHandle
 				val childEntryHandle = (NodeEntryHandle) childObj;
 				// cache miss .. need to async reload entry from cache
+				cacheMiss++;
 				CachedNodeEntry childEntry = doLoadCachedNodeEntry(childEntryHandle, defaultFetchSize);
 				currEntry.sortedEntries[childIdx] = childEntry;
 				currEntry = childEntry;
@@ -182,6 +189,7 @@ public class Cached_ReadOnlyIndexedBlobStorage_TreeNodeData extends ReadOnlyCach
 		NodeData res = currEntry.cachedData;
 		if (res == null) {
 			// cache miss on last entry on cachedData
+			cacheMiss++;
 			val currHandle = new NodeEntryHandle(currEntry.name, currEntry.dataFilePos);
 			CachedNodeEntry reloadCurrEntry = doLoadCachedNodeEntry(currHandle, defaultFetchSize);
 			res = reloadCurrEntry.cachedData;
