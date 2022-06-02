@@ -12,6 +12,10 @@
 
 	
     <dependencies>
+    	<dependency>
+	    	<groupId>fr.an.attrtreestore</groupId>
+			<artifactId>attributed-tree-store-core</artifactId>
+    	</dependency>
 	
 		<dependency>
 			<groupId>org.projectlombok</groupId>
