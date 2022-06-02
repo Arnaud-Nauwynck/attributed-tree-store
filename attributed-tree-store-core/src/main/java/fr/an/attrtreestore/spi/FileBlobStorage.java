@@ -80,7 +80,7 @@ public class FileBlobStorage extends BlobStorage {
 	
 	@Override
 	public OutputStream openWrite(String filePath, boolean append) {
-		log.info("open write " + ((append)? " append" : "") + " to " + displayName + " file '" + filePath + "'");
+		log.info("open write" + ((append)? "-append" : "") + " to " + displayName + " file '" + filePath + "'");
 		val file = toFile(filePath);
 		try {
 			return new FileOutputStream(file, append);
