@@ -18,5 +18,12 @@ public abstract class PartialOverrideTreeData implements IWriteTreeData {
 	
 	/** @return override {data,status} <code>NodeOverrideData</code>, unlike 'get' for TreeData which return only NodeData */  
 	public abstract NodeOverrideData getOverride(NodeNamesPath path);
+
 	
+	/** should not be called here, see getOverride() instead */
+	@Override
+	public NodeData get(NodeNamesPath path) {
+		throw new UnsupportedOperationException("should not be called");
+	}
+
 }

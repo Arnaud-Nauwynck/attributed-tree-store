@@ -10,6 +10,8 @@ import lombok.val;
  */
 public final class NodeNamesPath {
 
+	public static final NodeNamesPath ROOT = new NodeNamesPath(new NodeName[0]);
+	
 	public final NodeName[] pathElements;
 	
 	// private int hashCode;
@@ -25,6 +27,14 @@ public final class NodeNamesPath {
 		return new NodeNamesPath(pathElements);
 	}
 
+	public NodeNamesPath toChild(NodeName childName) {
+		val len = pathElements.length; 
+		val res = new NodeName[len + 1];
+		System.arraycopy(pathElements, 0, res, 0, len);
+		res[len] = childName;
+		return new NodeNamesPath(res);
+	}
+	
 	// ------------------------------------------------------------------------
 
 	public NodeName lastName() {

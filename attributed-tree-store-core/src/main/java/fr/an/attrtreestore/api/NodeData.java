@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -15,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @AllArgsConstructor
 @RequiredArgsConstructor
+@Builder
 public class NodeData {
 	
 	public final NodeName name;
@@ -28,23 +30,74 @@ public class NodeData {
 	
 	public final ImmutableMap<String,NodeAttr> attrs;
 
-	public final long creationTime;
+	/** external creationTime from backend if any */
+	public final long externalCreationTime;
 	
-	public final long lastModifiedTime;
-	
-	/** use-defined field1Long: in case (frequent) this node represent a file... the fileLength */
-	public final long field1Long;
-	
-	@Getter
-	private final long lastModifTimestamp;
+	/** external lastModifiedTime from backend if any */
+	public final long externalLastModifiedTime;
+
+	/** external fileLength from backend if any, or user-defined value */
+	public final long externalLength;
+
+	/** System.currentTimeMillis() of the jvm that queried the external backend the last time  
+	 * can be modified without persisting... transient 
+	 */
+	private transient long lastExternalRefreshTimeMillis;
+
+	/** internal System.currentTime() of the jvm that modified this path NodeData the last time */
+	public final long lastTreeDataUpdateTimeMillis;
+
+	/** internal incremented counter when modifying this path NodeData the last time */
+	public final int lastTreeDataUpdateCount;
 
 	
+	/** internal mask for update recomputation propagations 
+	 * (can/)might be modified without persisting .. transient
+	 */
 	@Getter
-	private int lruCount;
+	private transient int treeDataRecomputationMask;
+
+	
+	
+	/** internal counter of the jvm that queried this path NodeData 
+	 * can be modified without persisting... transient 
+	 */
 	@Getter
-	private int lruAmortizedCount;
+	private transient int lruCount;
+	
+	/** internal exponentially amortized counter  
+	 * can be modified without persisting... transient 
+	 */
 	@Getter
-	private long lastQueryTimestamp;
+	private transient int lruAmortizedCount;
+	
+	/** internal System.currentTime() of the jvm that queried this path NodeData the last time 
+	 * can be modified without persisting... transient 
+	 */
+	@Getter
+	private transient long lastTreeDataQueryTimeMillis;
+
+	// ------------------------------------------------------------------------
+
+	public void setTreeDataRecomputationMask(int treeDataRecomputationMask) {
+		this.treeDataRecomputationMask = treeDataRecomputationMask;
+	}
+
+	public void incrLruCount() {
+		this.lruCount++;  // TODO... need atomic cas
+	}
+	
+	public void setLruCount(int lruCount) {
+		this.lruCount = lruCount;
+	}
+
+	public void setLruAmortizedCount(int lruAmortizedCount) {
+		this.lruAmortizedCount = lruAmortizedCount;
+	}
+
+	public void setLastTreeDataQueryTimeMillis(long lastTreeDataQueryTimeMillis) {
+		this.lastTreeDataQueryTimeMillis = lastTreeDataQueryTimeMillis;
+	}
 
 
 	// ------------------------------------------------------------------------
@@ -56,4 +109,13 @@ public class NodeData {
 				+ ")";
 	}
 	
+	public boolean isSimpleFieldsEquals(NodeData other) {
+		return type == other.type && 
+				mask == other.mask && 
+				externalCreationTime == other.externalCreationTime &&
+				externalLastModifiedTime == other.externalLastModifiedTime &&
+				externalLength == other.externalLength;
+	}
+
+
 }

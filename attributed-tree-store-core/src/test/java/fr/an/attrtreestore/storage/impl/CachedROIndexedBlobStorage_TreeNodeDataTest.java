@@ -109,10 +109,12 @@ public class CachedROIndexedBlobStorage_TreeNodeDataTest {
 		// TOADD assertEquals childNames; 
 		// TOADD assertEquals attrs;
 
-		Assert.assertEquals(expected.creationTime, actual.creationTime);
-		Assert.assertEquals(expected.lastModifiedTime, actual.lastModifiedTime);
-		Assert.assertEquals(expected.field1Long, actual.field1Long);
-		Assert.assertEquals(expected.getLastModifTimestamp(), actual.getLastModifTimestamp());
+		Assert.assertEquals(expected.externalCreationTime, actual.externalCreationTime);
+		Assert.assertEquals(expected.externalLastModifiedTime, actual.externalLastModifiedTime);
+		Assert.assertEquals(expected.externalLength, actual.externalLength);
+		Assert.assertEquals(expected.getLastTreeDataUpdateTimeMillis(), actual.getLastTreeDataUpdateTimeMillis());
+		Assert.assertEquals(expected.getLastTreeDataUpdateCount(), actual.getLastTreeDataUpdateCount());
+		
 		// lruCount... may differ 
 		
 		return actual;

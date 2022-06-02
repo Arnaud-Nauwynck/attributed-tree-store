@@ -15,6 +15,7 @@ import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.attrinfo.AttrEvalStatus;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.val;
 
 @AllArgsConstructor
@@ -37,15 +38,19 @@ public class AttrDataEncoderHelper {
 		
 		writeAttrDatas(out, node.attrs.values());
 
-		out.writeLong(node.creationTime);
-		out.writeLong(node.lastModifiedTime);
-		out.writeLong(node.field1Long);
+		out.writeLong(node.externalCreationTime);
+		out.writeLong(node.externalLastModifiedTime);
+		out.writeLong(node.externalLength);
+		out.writeLong(node.getLastExternalRefreshTimeMillis());
 		
-		out.writeLong(node.getLastModifTimestamp());
-
+		out.writeLong(node.lastTreeDataUpdateTimeMillis);
+		out.writeInt(node.lastTreeDataUpdateCount);
+		
+		out.writeInt(node.getTreeDataRecomputationMask());
 		out.writeInt(node.getLruCount());
 		out.writeInt(node.getLruAmortizedCount());
-		out.writeLong(node.getLastQueryTimestamp());
+		
+		out.writeLong(node.getLastTreeDataQueryTimeMillis());
 	}
 
 	public NodeData readNodeData_noName(DataInput in, NodeName name) throws IOException {
@@ -58,20 +63,24 @@ public class AttrDataEncoderHelper {
 		
 		val attrs = readAttrDatas_immutableMap(in);
 		
-		val creationTime = in.readLong();
-		val lastModifiedTime= in.readLong();
-		val field1Long = in.readLong();
+		val externalCreationTime = in.readLong();
+		val externalLastModifiedTime = in.readLong();
+		val externalLength = in.readLong();		
+		val lastExternalRefreshTimeMillis = in.readLong();
 		
-		val lastModifTimestamp = in.readLong();
-
+		val lastTreeDataUpdateTimeMillis = in.readLong();
+		val lastTreeDataUpdateCount = in.readInt();
+		
+		val treeDataRecomputationMask = in.readInt();
 		val lruCount = in.readInt();
 		val lruAmortizedCount = in.readInt();
-		val lastQueryTimestamp = in.readLong();
+		val lastTreeDataQueryTimeMillis = in.readLong();
 		
 		return new NodeData(name, type, mask, childNames, attrs, // 
-				creationTime, lastModifiedTime, field1Long, //
-				lastModifTimestamp, //
-				lruCount, lruAmortizedCount, lastQueryTimestamp
+				externalCreationTime, externalLastModifiedTime, externalLength, lastExternalRefreshTimeMillis, //
+				lastTreeDataUpdateTimeMillis, lastTreeDataUpdateCount, //
+				treeDataRecomputationMask, //
+				lruCount, lruAmortizedCount, lastTreeDataQueryTimeMillis
 				);
 	}
 	

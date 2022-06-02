@@ -1,6 +1,6 @@
 package fr.an.attrtreestore.api;
 
-public interface IWriteTreeData {
+public interface IWriteTreeData extends IReadTreeData {
 
 	// TODO ... need to provide function to fill intermediate unknown nodes..
 	// public abstract void put_createIntermediate(NodeNamesPath path, NodeData data, Function<NodeNamesPath,NodeData> func);
