@@ -1,9 +1,8 @@
-package fr.an.attrtreestore.storage;
+package fr.an.attrtreestore.storage.old;
 
 import java.util.concurrent.CompletableFuture;
 
 import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.impl.Node;
 
 public abstract class NodeTreeLoader {
 

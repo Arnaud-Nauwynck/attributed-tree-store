@@ -1,7 +1,10 @@
 package fr.an.attrtreestore.storage.api;
 
+import fr.an.attrtreestore.api.IReadTreeData;
+import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeNamesPath;
+import fr.an.attrtreestore.api.TreeData;
 import lombok.Getter;
 import lombok.val;
 
@@ -10,19 +13,19 @@ import lombok.val;
  * delegate update/deletes to override layer, else read-only queries to baseReadOnly layer
  *
  */
-public class UnionOverrideRO_TreeNodeData {
+public class UnionOverrideRO_TreeData extends TreeData implements IReadTreeData, IWriteTreeData {
 
 	@Getter
-	protected final ROCached_TreeNodeData baseReadOnlyTree;
+	protected final ROCached_TreeData baseReadOnlyTree;
 
 	@Getter
-	protected final PartialOverrideTreeNodeData overrideTree;
+	protected final PartialOverrideTreeData overrideTree;
 	
 	// ------------------------------------------------------------------------
 	
-	public UnionOverrideRO_TreeNodeData(
-			ROCached_TreeNodeData baseReadOnlyTree,
-			PartialOverrideTreeNodeData overrideTree) {
+	public UnionOverrideRO_TreeData(
+			ROCached_TreeData baseReadOnlyTree,
+			PartialOverrideTreeData overrideTree) {
 		this.baseReadOnlyTree = baseReadOnlyTree;
 		this.overrideTree = overrideTree;
 	}
@@ -30,8 +33,9 @@ public class UnionOverrideRO_TreeNodeData {
 	// ------------------------------------------------------------------------
 	
 	// @Deprecated.. shoud use async Api?
+	@Override
 	public NodeData get(NodeNamesPath path) {
-		NodeOverrideData overrideData = overrideTree.get(path);
+		NodeOverrideData overrideData = overrideTree.getOverride(path);
 		if (overrideData != null) {
 			switch(overrideData.status) {
 			case DELETED: return null;
@@ -45,10 +49,12 @@ public class UnionOverrideRO_TreeNodeData {
 	
 	// public abstract CompletableFuture<NodeData> asyncGet(NodeNamesPath path);
 
+	@Override
 	public void put(NodeNamesPath path, NodeData data) {
 		overrideTree.put(path, data);
 	}
 	
+	@Override
 	public void remove(NodeNamesPath path) {
 		overrideTree.remove(path);
 	}

@@ -20,7 +20,7 @@ import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.AttrInfoIndexes;
 import fr.an.attrtreestore.storage.api.NodeOverrideData;
 import fr.an.attrtreestore.storage.api.NodeOverrideStatus;
-import fr.an.attrtreestore.storage.api.PartialOverrideTreeNodeData;
+import fr.an.attrtreestore.storage.api.PartialOverrideTreeData;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.val;
@@ -37,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
  * using internally partial tree node 'PartialNodeEntry', containing 'Map<NodeName, PartialNodeEntry>'
  */
 @Slf4j
-public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverrideTreeNodeData {
+public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverrideTreeData {
 
 	private static final String FILE_HEADER = "append-path-data";
 
@@ -84,6 +84,7 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 	private String currFileName;
 
 	private final Object writeLock = new Object();
+
 	// @GuardedBy("writeLock")
 	private String currPathSlash = "";
 	// @GuardedBy("writeLock")
@@ -123,56 +124,58 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 		doReloadFileRange(headerLen, currFileLen);
 	}
 	
-	private void doReloadFileRange(final long fromFilePos, final long toFilePos) {
-		synchronized(writeLock) {
-			try (val fileIn = blobStorage.openRead(currFileName, fromFilePos)) {
-				val inCounter = new CountingInputStream(new BufferedInputStream(fileIn));
-				val in = new DataInputStream(inCounter);
-				
-				NodeNameEncoder nodeNameEncoder = attrDataEncoderHelper.nodeNameEncoder;
-				
-				val toCount = toFilePos - fromFilePos;
-				while(inCounter.getCount() < toCount) {
-					
-					val pathText = AttrDataEncoderHelper.readIncrString(in, currPathSlash);
-					this.currPathSlash = pathText;
-					val path = nodeNameEncoder.encodePath(pathText); 
-							
-					val statusByte = in.read();
-					if (statusByte == ' ') { // for NodeOverrideStatus.UPDATED
-						// take current filePos
-						long dataFilePos = fromFilePos + inCounter.getCount();
-								
-						val name = path.pathElements[path.pathElements.length-1];
-						val data = attrDataEncoderHelper.readNodeData_noName(in, name);
-
-						// current filePos
-						long filePosAfterData = fromFilePos + inCounter.getCount();
-						int dataLen = (int) (filePosAfterData - dataFilePos);
-
-						// TOADD read (redundant) dataLen for skippable ? 
-						
-						doReplayPut(path, dataFilePos, dataLen, data);
-					} else if (statusByte == '-') { // for NodeOverrideStatus.DELETED
-						doReplayRemoved(path);
-					} else {
-						throw new IllegalStateException("should not occur");
-					}
-				}
-
-				// TOADD check..
-				this.currFilePos = fromFilePos + inCounter.getCount(); 
-				if (toFilePos != this.currFilePos) {
-					log.error("should not occur? currFilePos " + currFilePos + " != " + toFilePos);
-				}
-
-			} catch(Exception ex) {
-				throw new RuntimeException("Failed to read", ex);
+	// implements PartialOverrideTreeData (read part)
+	// ------------------------------------------------------------------------
+	
+	// TODO may use async
+	// public CompletableFuture<NodeOverrideData> asyncGetOverride(NodeNamesPath path) {
+	
+	@Override
+	public NodeOverrideData getOverride(NodeNamesPath path) {
+		val pathElts = path.pathElements;
+		val pathEltCount = pathElts.length;
+		PartialNodeEntry currEntry = rootEntry;
+		// implicit.. NodeName currName = null;
+		for(int i = 0; i < pathEltCount; i++) {
+			if (currEntry.child == null) {
+				return NodeOverrideData.NOT_OVERRIDEN; 
 			}
+			val pathElt = pathElts[i];
+			val foundChild = currEntry.child.get(pathElt);
+			if (foundChild == null) {
+				return NodeOverrideData.NOT_OVERRIDEN; 
+			} else if (foundChild.overrideStatus == NodeOverrideStatus.DELETED) {
+				return NodeOverrideData.DELETED; 
+			}
+			currEntry = foundChild;
+			// implicit.. currName = pathElt;
+		}
+		val currName = pathElts[pathEltCount-1];
+		if (currEntry == null) { // should not occur
+			return NodeOverrideData.NOT_OVERRIDEN; 
+		}
+		if (currEntry.overrideStatus == NodeOverrideStatus.DELETED) {
+			return NodeOverrideData.DELETED;
+		} else if (currEntry.overrideStatus == NodeOverrideStatus.UPDATED) {
+			val cachedData = currEntry.cachedData;
+			if (cachedData != null) {
+				return new NodeOverrideData(NodeOverrideStatus.UPDATED, cachedData);
+			} else {
+				// need reload data from cache, using filePos
+				// TOCHANGE.. should return a Future<NodeOverrideData> ??
+				// current impl: blocking read
+
+				// **** The Biggy: IO Read (maybe remote) ***
+				val reloadedData = doReadData(currEntry, currName);
+
+				return new NodeOverrideData(NodeOverrideStatus.UPDATED, reloadedData);
+			}
+		} else {
+			throw new IllegalStateException(); // should not occur
 		}
 	}
-
-	// implements api
+	
+	// implements api IWriteTreeData
 	// ------------------------------------------------------------------------
 
 	@Override
@@ -228,16 +231,6 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 		} // synchronized writeLock
 	}
 	
-	private void doReplayPut(NodeNamesPath path, long dataFilePos, int dataLen, NodeData cachedData) {
-		// update in-memory: resolve (mkdirs) parent node + update/add PartialNodeEntry
-		PartialNodeEntry entry = resolveMkEntry(path, true);
-		
-		synchronized(entry) { // useless redundant lock?
-			// update in-memory: mark as 'UPDATED'
-			entry.setOverrideData(NodeOverrideStatus.UPDATED, dataFilePos, dataLen, cachedData);
-		}
-	}
-	
 	@Override
 	public void remove(NodeNamesPath path) {
 		String pathSlash = path.toPathSlash();
@@ -283,91 +276,12 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 			recursiveMarkDisposed(recursiveDisposeChildMap);
 		}
 	}
-	
-	private void doReplayRemoved(NodeNamesPath path) {
-		// update in-memory: resolve (mkdirs) parent node + update/add PartialNodeEntry
-		PartialNodeEntry entry = resolveMkEntry_Deleted(path);
-		if (entry == null) {
-			return;
-		}
-		
-		Map<NodeName,PartialNodeEntry> recursiveDisposeChildMap = null;
-			
-		// update in-memory: mark as 'DELETED' + remove all sub-child if any
-		synchronized(entry) { // useless redundant lock?
-			entry.setOverrideData(NodeOverrideStatus.DELETED, 0, 0, null);
-			
-			// remove all sub-child overrides if any
-			recursiveDisposeChildMap = entry.child;
-			entry.setMarkDisposed();
-		}
-		
-		// change status to null (INTERNAL_ENTRY_DISPOSED) + help gc by clearing references
-		if (recursiveDisposeChildMap != null) {
-			recursiveMarkDisposed(recursiveDisposeChildMap);
-		}
-	}
-	
-	private static void recursiveMarkDisposed(Map<NodeName,PartialNodeEntry> map) {
-		for (val e: map.values()) {
-			val childMap = e.child;
-			e.setMarkDisposed();
-			if (childMap != null) {
-				recursiveMarkDisposed(childMap);
-			}
-		}
-		map.clear();
-	}
-	
-	@Override
-	public NodeOverrideData get(NodeNamesPath path) {
-		val pathElts = path.pathElements;
-		val pathEltCount = pathElts.length;
-		PartialNodeEntry currEntry = rootEntry;
-		// implicit.. NodeName currName = null;
-		for(int i = 0; i < pathEltCount; i++) {
-			if (currEntry.child == null) {
-				return NodeOverrideData.NOT_OVERRIDEN; 
-			}
-			val pathElt = pathElts[i];
-			val foundChild = currEntry.child.get(pathElt);
-			if (foundChild == null) {
-				return NodeOverrideData.NOT_OVERRIDEN; 
-			} else if (foundChild.overrideStatus == NodeOverrideStatus.DELETED) {
-				return NodeOverrideData.DELETED; 
-			}
-			currEntry = foundChild;
-			// implicit.. currName = pathElt;
-		}
-		val currName = pathElts[pathEltCount-1];
-		if (currEntry == null) { // should not occur
-			return NodeOverrideData.NOT_OVERRIDEN; 
-		}
-		if (currEntry.overrideStatus == NodeOverrideStatus.DELETED) {
-			return NodeOverrideData.DELETED;
-		} else if (currEntry.overrideStatus == NodeOverrideStatus.UPDATED) {
-			val cachedData = currEntry.cachedData;
-			if (cachedData != null) {
-				return new NodeOverrideData(NodeOverrideStatus.UPDATED, cachedData);
-			} else {
-				// need reload data from cache, using filePos
-				// TOCHANGE.. should return a Future<NodeOverrideData> ??
-				// current impl: blocking read
 
-				// **** The Biggy: IO Read (maybe remote) ***
-				val reloadedData = doReadData(currEntry, currName);
 
-				return new NodeOverrideData(NodeOverrideStatus.UPDATED, reloadedData);
-			}
-		} else {
-			throw new IllegalStateException(); // should not occur
-		}
-		
-	}
-
+	// internal
 	// ------------------------------------------------------------------------
 	
-	private PartialNodeEntry resolveMkEntry(NodeNamesPath path, boolean setIntermediateEntryUpdated) {
+	protected PartialNodeEntry resolveMkEntry(NodeNamesPath path, boolean setIntermediateEntryUpdated) {
 		val pathElts = path.pathElements;
 		val pathEltCount = pathElts.length;
 		PartialNodeEntry currEntry = rootEntry;
@@ -401,7 +315,7 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 		return currEntry;
 	}
 	
-	private PartialNodeEntry resolveMkEntry_Deleted(NodeNamesPath path) {
+	protected PartialNodeEntry resolveMkEntry_Deleted(NodeNamesPath path) {
 		val pathElts = path.pathElements;
 		val pathEltCount = pathElts.length;
 		PartialNodeEntry currEntry = rootEntry;
@@ -439,8 +353,105 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 		return currEntry;
 	}
 	
+	/** read and replay events (in same order) from appended-only Log file from BlobStorage */
+	protected void doReloadFileRange(final long fromFilePos, final long toFilePos) {
+		synchronized(writeLock) {
+			try (val fileIn = blobStorage.openRead(currFileName, fromFilePos)) {
+				val inCounter = new CountingInputStream(new BufferedInputStream(fileIn));
+				val in = new DataInputStream(inCounter);
+				
+				NodeNameEncoder nodeNameEncoder = attrDataEncoderHelper.nodeNameEncoder;
+				
+				val toCount = toFilePos - fromFilePos;
+				while(inCounter.getCount() < toCount) {
+					
+					val pathText = AttrDataEncoderHelper.readIncrString(in, currPathSlash);
+					this.currPathSlash = pathText;
+					val path = nodeNameEncoder.encodePath(pathText); 
+							
+					val statusByte = in.read();
+					if (statusByte == ' ') { // for NodeOverrideStatus.UPDATED
+						// take current filePos
+						long dataFilePos = fromFilePos + inCounter.getCount();
+								
+						val name = path.pathElements[path.pathElements.length-1];
+						val data = attrDataEncoderHelper.readNodeData_noName(in, name);
+
+						// current filePos
+						long filePosAfterData = fromFilePos + inCounter.getCount();
+						int dataLen = (int) (filePosAfterData - dataFilePos);
+
+						// TOADD read (redundant) dataLen for skippable ? 
+						
+						doReplayPut(path, dataFilePos, dataLen, data);
+					} else if (statusByte == '-') { // for NodeOverrideStatus.DELETED
+						doReplayRemoved(path);
+					} else {
+						throw new IllegalStateException("should not occur");
+					}
+				}
+
+				// TOADD check..
+				this.currFilePos = fromFilePos + inCounter.getCount(); 
+				if (toFilePos != this.currFilePos) {
+					log.error("should not occur? currFilePos " + currFilePos + " != " + toFilePos);
+				}
+
+			} catch(Exception ex) {
+				throw new RuntimeException("Failed to read", ex);
+			}
+		}
+	}
 	
-	private NodeData doReadData(PartialNodeEntry entry, NodeName name) {
+	protected void doReplayPut(NodeNamesPath path, long dataFilePos, int dataLen, NodeData cachedData) {
+		// update in-memory: resolve (mkdirs) parent node + update/add PartialNodeEntry
+		PartialNodeEntry entry = resolveMkEntry(path, true);
+		
+		synchronized(entry) { // useless redundant lock?
+			// update in-memory: mark as 'UPDATED'
+			entry.setOverrideData(NodeOverrideStatus.UPDATED, dataFilePos, dataLen, cachedData);
+		}
+	}
+	
+	protected void doReplayRemoved(NodeNamesPath path) {
+		// update in-memory: resolve (mkdirs) parent node + update/add PartialNodeEntry
+		PartialNodeEntry entry = resolveMkEntry_Deleted(path);
+		if (entry == null) {
+			return;
+		}
+		
+		Map<NodeName,PartialNodeEntry> recursiveDisposeChildMap = null;
+			
+		// update in-memory: mark as 'DELETED' + remove all sub-child if any
+		synchronized(entry) { // useless redundant lock?
+			entry.setOverrideData(NodeOverrideStatus.DELETED, 0, 0, null);
+			
+			// remove all sub-child overrides if any
+			recursiveDisposeChildMap = entry.child;
+			entry.setMarkDisposed();
+		}
+		
+		// change status to null (INTERNAL_ENTRY_DISPOSED) + help gc by clearing references
+		if (recursiveDisposeChildMap != null) {
+			recursiveMarkDisposed(recursiveDisposeChildMap);
+		}
+	}
+	
+	protected static void recursiveMarkDisposed(Map<NodeName,PartialNodeEntry> map) {
+		for (val e: map.values()) {
+			val childMap = e.child;
+			e.setMarkDisposed();
+			if (childMap != null) {
+				recursiveMarkDisposed(childMap);
+			}
+		}
+		map.clear();
+	}
+
+	// TODO may use async
+	// public CompletableFuture<NodeOverrideData> asyncGetOverride(NodeNamesPath path) {
+
+	protected NodeData doReadData(PartialNodeEntry entry, NodeName name) {
 		val dataFilePos = entry.dataFilePos;
 		val dataLen = entry.dataLen;
 		

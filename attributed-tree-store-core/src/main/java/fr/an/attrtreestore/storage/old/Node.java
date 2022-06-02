@@ -1,4 +1,4 @@
-package fr.an.attrtreestore.impl;
+package fr.an.attrtreestore.storage.old;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,7 +8,6 @@ import java.util.concurrent.CompletableFuture;
 
 import fr.an.attrtreestore.api.NodeAttr;
 import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.storage.NodeTreeLoader;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.val;

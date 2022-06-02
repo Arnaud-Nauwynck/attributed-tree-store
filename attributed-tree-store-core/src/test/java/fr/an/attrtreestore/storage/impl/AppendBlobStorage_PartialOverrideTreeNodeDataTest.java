@@ -61,25 +61,25 @@ public class AppendBlobStorage_PartialOverrideTreeNodeDataTest {
 
 		{
 			// assert in-memory
-			val res1_a_b_c = sut.get(PATH_a_b_c);
+			val res1_a_b_c = sut.getOverride(PATH_a_b_c);
 			Assert.assertEquals(NodeOverrideStatus.UPDATED, res1_a_b_c.status);
 	
-			val res1_a_b_c_d1 = sut.get(PATH_a_b_c_d1);
+			val res1_a_b_c_d1 = sut.getOverride(PATH_a_b_c_d1);
 			Assert.assertEquals(NodeOverrideStatus.NOT_OVERRIDEN, res1_a_b_c_d1.status);
 	
-			val res1_a_b_c_d1_e1 = sut.get(PATH_a_b_c_d1_e1);
+			val res1_a_b_c_d1_e1 = sut.getOverride(PATH_a_b_c_d1_e1);
 			Assert.assertEquals(NodeOverrideStatus.NOT_OVERRIDEN, res1_a_b_c_d1_e1.status);
 
 			// assert using reload
 			val sutReload = reloader.get();
 
-			val reloadres1_a_b_c = sutReload.get(PATH_a_b_c);
+			val reloadres1_a_b_c = sutReload.getOverride(PATH_a_b_c);
 			Assert.assertEquals(NodeOverrideStatus.UPDATED, reloadres1_a_b_c.status);
 	
-			val reloadres1_a_b_c_d1 = sutReload.get(PATH_a_b_c_d1);
+			val reloadres1_a_b_c_d1 = sutReload.getOverride(PATH_a_b_c_d1);
 			Assert.assertEquals(NodeOverrideStatus.NOT_OVERRIDEN, reloadres1_a_b_c_d1.status);
 	
-			val reloadres1_a_b_c_d1_e1 = sutReload.get(PATH_a_b_c_d1_e1);
+			val reloadres1_a_b_c_d1_e1 = sutReload.getOverride(PATH_a_b_c_d1_e1);
 			Assert.assertEquals(NodeOverrideStatus.NOT_OVERRIDEN, reloadres1_a_b_c_d1_e1.status);
 
 		}
@@ -91,19 +91,19 @@ public class AppendBlobStorage_PartialOverrideTreeNodeDataTest {
 		
 		{
 			// assert in-memory
-			val res2_a_b_c_d1 = sut.get(PATH_a_b_c_d1);
+			val res2_a_b_c_d1 = sut.getOverride(PATH_a_b_c_d1);
 			Assert.assertEquals(NodeOverrideStatus.UPDATED, res2_a_b_c_d1.status);
 
 			// assert using reload
 			val sutReload2 = reloader.get();
 			
-			val reloadres2_a_b_c = sutReload2.get(PATH_a_b_c);
+			val reloadres2_a_b_c = sutReload2.getOverride(PATH_a_b_c);
 			Assert.assertEquals(NodeOverrideStatus.UPDATED, reloadres2_a_b_c.status);
 	
-			val reloadres2_a_b_c_d1_e1 = sutReload2.get(PATH_a_b_c_d1_e1);
+			val reloadres2_a_b_c_d1_e1 = sutReload2.getOverride(PATH_a_b_c_d1_e1);
 			Assert.assertEquals(NodeOverrideStatus.NOT_OVERRIDEN, reloadres2_a_b_c_d1_e1.status);
 			
-			val reloadres2_a_b_c_d1 = sutReload2.get(PATH_a_b_c_d1);
+			val reloadres2_a_b_c_d1 = sutReload2.getOverride(PATH_a_b_c_d1);
 			Assert.assertEquals(NodeOverrideStatus.UPDATED, reloadres2_a_b_c_d1.status);
 
 		}
@@ -113,22 +113,22 @@ public class AppendBlobStorage_PartialOverrideTreeNodeDataTest {
 		
 		{
 			// assert in-memory
-			val res3_a_b_c_d1 = sut.get(PATH_a_b_c_d1);
+			val res3_a_b_c_d1 = sut.getOverride(PATH_a_b_c_d1);
 			Assert.assertEquals(NodeOverrideStatus.DELETED, res3_a_b_c_d1.status);
 	
-			val res3_a_b_c_d1_e1 = sut.get(PATH_a_b_c_d1_e1);
+			val res3_a_b_c_d1_e1 = sut.getOverride(PATH_a_b_c_d1_e1);
 			Assert.assertEquals(NodeOverrideStatus.DELETED, res3_a_b_c_d1_e1.status);
 		
 			// assert using reload
 			val sutReload = reloader.get();
 			
-			val reloadres3_a_b_c = sutReload.get(PATH_a_b_c);
+			val reloadres3_a_b_c = sutReload.getOverride(PATH_a_b_c);
 			Assert.assertEquals(NodeOverrideStatus.UPDATED, reloadres3_a_b_c.status);
 			
-			val reloadres3_a_b_c_d1 = sutReload.get(PATH_a_b_c_d1);
+			val reloadres3_a_b_c_d1 = sutReload.getOverride(PATH_a_b_c_d1);
 			Assert.assertEquals(NodeOverrideStatus.DELETED, reloadres3_a_b_c_d1.status);
 	
-			val reloadres3_a_b_c_d1_e1 = sutReload.get(PATH_a_b_c_d1_e1);
+			val reloadres3_a_b_c_d1_e1 = sutReload.getOverride(PATH_a_b_c_d1_e1);
 			Assert.assertEquals(NodeOverrideStatus.DELETED, reloadres3_a_b_c_d1_e1.status);
 			
 		}

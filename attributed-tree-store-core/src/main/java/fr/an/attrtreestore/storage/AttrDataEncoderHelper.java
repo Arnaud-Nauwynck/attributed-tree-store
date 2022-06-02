@@ -212,5 +212,4 @@ public class AttrDataEncoderHelper {
 		return len;
 	}
 
-	
 }

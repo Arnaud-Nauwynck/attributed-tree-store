@@ -45,7 +45,7 @@ public class TreeTstObj {
 	public static final NodeNamesPath PATH_a_b_c_d2 = NodeNamesPath.of(a, b, c, d2);
 	public static final NodeNamesPath PATH_a_b_c_d3 = NodeNamesPath.of(a, b, c, d3);
 	
-	public final FullInMem_TreeNodeData treeData = new FullInMem_TreeNodeData();
+	public final FullInMem_TreeData treeData = new FullInMem_TreeData();
 	
 	public final NodeData data_a;
 	public final NodeData data_a_b;

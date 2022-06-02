@@ -1,9 +1,7 @@
-package fr.an.attrtreestore.api;
+package fr.an.attrtreestore.storage.old;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-
-import fr.an.attrtreestore.storage.NodeTreeLoader;
 
 /**
  * Tree of Node, either in-memory or cached on storage

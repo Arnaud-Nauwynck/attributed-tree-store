@@ -9,12 +9,13 @@ import java.util.ArrayList;
 
 import com.google.common.io.CountingInputStream;
 
+import fr.an.attrtreestore.api.IReadTreeData;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions;
 import fr.an.attrtreestore.spi.BlobStorage;
-import fr.an.attrtreestore.storage.api.ROCached_TreeNodeData;
+import fr.an.attrtreestore.storage.api.ROCached_TreeData;
 import fr.an.attrtreestore.storage.impl.IndexedBlobStorage_TreeNodeDataEncoder.NodeDataAndChildFilePos;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -26,26 +27,26 @@ import lombok.extern.slf4j.Slf4j;
  * 
  */
 @Slf4j
-public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeNodeData {
+public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData implements IReadTreeData {
 	
-	private final BlobStorage blobStorage;
+	protected final BlobStorage blobStorage;
 
 	@Getter
-	private final String fileName;
+	protected final String fileName;
 
-	private final IndexedBlobStorage_TreeNodeDataEncoder indexedTreeNodeDataEncoder;
+	protected final IndexedBlobStorage_TreeNodeDataEncoder indexedTreeNodeDataEncoder;
 
-	private final CachedNodeEntry rootNode;
+	protected final CachedNodeEntry rootNode;
 	
-	private final long fileLen; // computed from blobStorage + fileName at init
+	protected final long fileLen; // computed from blobStorage + fileName at init
 
-	private int maxBufferSize = 32 * 1024; // 32ko ... may use 4ko for TCP message: 1 call ~ 4k ??
-	private int defaultFetchSize = 128 * 1024; // 128ko ?? ... will force many more calls to storage, to fill cache more aggressively? 
+	protected int maxBufferSize = 32 * 1024; // 32ko ... may use 4ko for TCP message: 1 call ~ 4k ??
+	protected int defaultFetchSize = 128 * 1024; // 128ko ?? ... will force many more calls to storage, to fill cache more aggressively? 
 
 	@Getter
-	private long cacheMiss = 0;
+	protected long cacheMiss = 0;
 	@Getter
-	private long cacheHit = 0;
+	protected long cacheHit = 0;
 	
 	/**
 	 * partially loaded Node... 
@@ -56,11 +57,11 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeNodeDa
 	 */
 	@RequiredArgsConstructor //?
 	@AllArgsConstructor
-	private static class CachedNodeEntry {
+	protected static class CachedNodeEntry {
 		final NodeName name;
 		
 		long dataFilePos;
-		// private int dataLen; // .. redundant with filePos 
+		// int dataLen; // .. redundant with filePos 
 		NodeData cachedData;
 
 		// when loaded => downcast to CachedNodeEntry
@@ -92,7 +93,7 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeNodeDa
 	}
 	
 	@AllArgsConstructor
-	private static class NodeEntryHandle {
+	protected static class NodeEntryHandle {
 		final NodeName name;
 		long dataFilePos;
 		// private int dataLen; // redundant with filePos..
@@ -153,7 +154,7 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeNodeDa
 		}
 	}
 	
-	// implements api ReadOnlyCached_TreeNodeData
+	// implements api IReadTreeData
 	// ------------------------------------------------------------------------
 	
 	@Override
@@ -196,7 +197,7 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeNodeDa
 
 	// ------------------------------------------------------------------------
 	
-	private CachedNodeEntry doLoadCachedNodeEntry(NodeEntryHandle entryHandle, long fetchSizeArgs) {
+	protected CachedNodeEntry doLoadCachedNodeEntry(NodeEntryHandle entryHandle, long fetchSizeArgs) {
 		CachedNodeEntry res;
 		val dataFilePos = entryHandle.dataFilePos;
 		long maxReadLen = fileLen - dataFilePos;
@@ -234,7 +235,7 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeNodeDa
 	}
 
 	
-	private CachedNodeEntry dataAndChildPosToCachedEntry(NodeName name, long dataFilePos, NodeDataAndChildFilePos dataAndChildPos) {
+	protected CachedNodeEntry dataAndChildPosToCachedEntry(NodeName name, long dataFilePos, NodeDataAndChildFilePos dataAndChildPos) {
 		CachedNodeEntry res;
 		val cachedData = dataAndChildPos.nodeData;
 		val childDataFilePos = dataAndChildPos.childDataFilePos;
@@ -251,7 +252,7 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeNodeDa
 		return res;
 	}
 
-	private void tryParseAndAddCachedRecursiveChildList(CachedNodeEntry node, 
+	protected void tryParseAndAddCachedRecursiveChildList(CachedNodeEntry node, 
 			DataInputStream dataIn,
 			long countDataFilePosOffset, CountingInputStream counting, long maxReadCount
 			) {
@@ -276,7 +277,7 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeNodeDa
 		}
 	}
 
-	private void setLoadedChild(CachedNodeEntry node, int i, NodeName childName,
+	protected void setLoadedChild(CachedNodeEntry node, int i, NodeName childName,
 			CachedNodeEntry childEntry) {
 		if (childEntry != null) {
 			// ensure update with same name + dataFilePos
@@ -299,7 +300,7 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeNodeDa
 		}
 	}
 
-	private CachedNodeEntry recursiveTryParse(NodeName name, 
+	protected CachedNodeEntry recursiveTryParse(NodeName name, 
 			DataInputStream dataIn,
 			long countDataFilePosOffset, CountingInputStream counting, long maxReadCount
 			) {

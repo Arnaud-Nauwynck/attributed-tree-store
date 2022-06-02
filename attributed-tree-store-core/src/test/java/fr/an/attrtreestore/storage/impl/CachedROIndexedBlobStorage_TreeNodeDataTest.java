@@ -14,7 +14,7 @@ import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.spi.FileBlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.AttrInfoIndexes;
-import fr.an.attrtreestore.storage.api.ROCached_TreeNodeData.IndexedBlobStorageInitMode;
+import fr.an.attrtreestore.storage.api.ROCached_TreeData.IndexedBlobStorageInitMode;
 import fr.an.attrtreestore.storage.api.TreeTstObj;
 import lombok.val;
 

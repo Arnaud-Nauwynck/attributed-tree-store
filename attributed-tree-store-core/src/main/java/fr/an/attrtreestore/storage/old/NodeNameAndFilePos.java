@@ -1,4 +1,4 @@
-package fr.an.attrtreestore.storage;
+package fr.an.attrtreestore.storage.old;
 
 import fr.an.attrtreestore.api.NodeName;
 import lombok.AllArgsConstructor;

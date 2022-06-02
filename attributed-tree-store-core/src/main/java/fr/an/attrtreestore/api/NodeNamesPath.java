@@ -2,7 +2,6 @@ package fr.an.attrtreestore.api;
 
 import java.util.Arrays;
 
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import lombok.val;
 
 /**

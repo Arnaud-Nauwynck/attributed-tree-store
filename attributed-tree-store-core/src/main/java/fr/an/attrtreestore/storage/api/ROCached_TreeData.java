@@ -1,9 +1,10 @@
 package fr.an.attrtreestore.storage.api;
 
+import fr.an.attrtreestore.api.IReadTreeData;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeNamesPath;
 
-public abstract class ROCached_TreeNodeData {
+public abstract class ROCached_TreeData implements IReadTreeData {
 
 	public enum IndexedBlobStorageInitMode {
 		RELOAD_ROOT_ONLY,

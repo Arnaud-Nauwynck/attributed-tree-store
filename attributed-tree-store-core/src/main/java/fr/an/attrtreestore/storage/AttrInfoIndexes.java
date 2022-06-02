@@ -8,6 +8,9 @@ import com.google.common.collect.ImmutableMap;
 import fr.an.attrtreestore.api.attrinfo.AttrInfo;
 import lombok.val;
 
+/**
+ * mapping AttrInfo <-> int, to encode AttrInfo using 'int32 index' bits instead of 'String name'
+ */
 public class AttrInfoIndexes {
 
 	private final ImmutableMap<String,Integer> attr2Index;
@@ -37,6 +40,5 @@ public class AttrInfoIndexes {
 	public ImmutableList<AttrInfo<Object>> getIndex2Attr() {
 		return index2Attr;
 	}
-	
 	
 }

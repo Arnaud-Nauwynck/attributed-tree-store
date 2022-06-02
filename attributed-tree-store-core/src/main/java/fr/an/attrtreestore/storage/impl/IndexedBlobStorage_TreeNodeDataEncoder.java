@@ -10,13 +10,21 @@ import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import lombok.AllArgsConstructor;
 import lombok.val;
 
+/**
+ * IO helper TreeData
+ * delegating to <code>AttrDataEncoderHelper attrDataEncoderHelper</code>
+ * .. which itself delegates to
+ * 	  <code>AttrInfoIndexes attrIndexes</code>
+ *    <code>NodeNameEncoder nodeNameEncoder</code>
+ *
+ */
 public class IndexedBlobStorage_TreeNodeDataEncoder {
 
 	//	private static final String FILE_HEADER = "readonly-full-tree-data";
 
 	public static final long FIXED_ROOT_FILEPOS = 0;
 	
-	private final AttrDataEncoderHelper attrDataEncoderHelper;
+	protected final AttrDataEncoderHelper attrDataEncoderHelper;
 
 	// ------------------------------------------------------------------------
 	
