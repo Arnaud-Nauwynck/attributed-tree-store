@@ -19,7 +19,7 @@ import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoder;
 import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.spi.FileBlobStorage;
 import fr.an.attrtreestore.storage.AttrInfoIndexes;
-import fr.an.attrtreestore.storage.api.NodeOverrideStatus;
+import fr.an.attrtreestore.storage.overrideapi.NodeOverrideStatus;
 import lombok.val;
 
 public class AppendBlobStorage_PartialOverrideTreeNodeDataTest {

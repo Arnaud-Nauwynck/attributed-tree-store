@@ -1,4 +1,4 @@
-package fr.an.attrtreestore.storage.api;
+package fr.an.attrtreestore.api;
 
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
@@ -7,12 +7,6 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.TreeMap;
 
-import fr.an.attrtreestore.api.IReadTreeData;
-import fr.an.attrtreestore.api.IWriteTreeData;
-import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.TreeData;
 import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.storage.impl.IndexedBlobStorage_TreeNodeDataEncoder;
 import fr.an.attrtreestore.util.NoFlushCountingOutputStream;

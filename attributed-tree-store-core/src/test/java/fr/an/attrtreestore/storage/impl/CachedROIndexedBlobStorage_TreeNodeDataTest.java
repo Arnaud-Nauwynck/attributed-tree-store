@@ -8,13 +8,13 @@ import org.junit.Test;
 
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeNamesPath;
+import fr.an.attrtreestore.api.ROCached_TreeData.IndexedBlobStorageInitMode;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoder;
 import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.spi.FileBlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.AttrInfoIndexes;
-import fr.an.attrtreestore.storage.api.ROCached_TreeData.IndexedBlobStorageInitMode;
 import fr.an.attrtreestore.storage.api.TreeTstObj;
 import lombok.val;
 
