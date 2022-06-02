@@ -9,6 +9,7 @@ import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import lombok.AllArgsConstructor;
 import lombok.val;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * IO helper TreeData
@@ -18,6 +19,7 @@ import lombok.val;
  *    <code>NodeNameEncoder nodeNameEncoder</code>
  *
  */
+@Slf4j
 public class IndexedBlobStorage_TreeNodeDataEncoder {
 
 	//	private static final String FILE_HEADER = "readonly-full-tree-data";
@@ -48,6 +50,10 @@ public class IndexedBlobStorage_TreeNodeDataEncoder {
 		for(int i = 0; i < childCount; i++) {
 			childDataFilePos[i] = in.readLong();
 		}
+		val checkEnd = in.read(); // useless but easier for read/debug/check
+		if (checkEnd != '\n') {
+			log.error("expecting '\n', got " + checkEnd);
+		}
 		return new NodeDataAndChildFilePos(nodeData, childDataFilePos);
 	}
 	
@@ -57,6 +63,7 @@ public class IndexedBlobStorage_TreeNodeDataEncoder {
 		for(int i = 0; i < childCount; i++) {
 			out.writeLong(childDataFilePos[i]);
 		}
+		out.write('\n'); // useless but easier for read/debug/check
 	}
 	
 }

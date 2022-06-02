@@ -32,7 +32,8 @@ public class JavaNIOFileToNodeFsDataScanner {
 	public static void scan(Path rootScanDir,
 			NodeNameEncoder nodeNameEncoder,
 			NodeFsDataVisitor callback) {
-		val visitor = new JavaNIOToNodeFsDataFileVisitor(nodeNameEncoder, callback);
+		val mountRootName = nodeNameEncoder.encode("");
+		val visitor = new JavaNIOToNodeFsDataFileVisitor(mountRootName, nodeNameEncoder, callback);
 		try {
 			Files.walkFileTree(rootScanDir, visitor);
 		} catch (IOException e) {
@@ -50,17 +51,19 @@ public class JavaNIOFileToNodeFsDataScanner {
 	}
 	
 	protected static class JavaNIOToNodeFsDataFileVisitor extends SimpleFileVisitor<Path> {
+		private final NodeName rootName; // HACK... name is set in NodeData, but not in Tree.rootNode entry (immutable..)
 		private final NodeNameEncoder nodeNameEncoder;
 		private final NodeFsDataVisitor callback;
 		
 		private final List<DirNodeFsDataBuilder> currDirBuilderStack = new ArrayList<>();
 		private DirNodeFsDataBuilder currDirBuilder;
 		
-		protected JavaNIOToNodeFsDataFileVisitor(NodeNameEncoder nodeNameEncoder, NodeFsDataVisitor callback) {
+		protected JavaNIOToNodeFsDataFileVisitor(NodeName rootName, NodeNameEncoder nodeNameEncoder, NodeFsDataVisitor callback) {
+			this.rootName = rootName;
 			this.nodeNameEncoder = nodeNameEncoder;
 			this.callback = callback;
-			currDirBuilder = new DirNodeFsDataBuilder(NodeNamesPath.ROOT, 0, 0, null);
-			currDirBuilderStack.add(currDirBuilder);
+			// currDirBuilder = new DirNodeFsDataBuilder(NodeNamesPath.ROOT, 0, 0, null);
+			// currDirBuilderStack.add(currDirBuilder);
 		}
 		
 		@Override
@@ -72,7 +75,7 @@ public class JavaNIOFileToNodeFsDataScanner {
 				fileName = dir.toString(); // for root "c:" ?!
 			}
 			val name = nodeNameEncoder.encode(fileName);
-			val path = currDirBuilder.path.toChild(name);
+			val path = (currDirBuilder != null)? currDirBuilder.path.toChild(name) : NodeNamesPath.ROOT;
 
 			long creationTime = attrs.creationTime().toMillis();
 			long lastModifiedTime = attrs.lastModifiedTime().toMillis();
@@ -82,6 +85,9 @@ public class JavaNIOFileToNodeFsDataScanner {
 
 			DirNodeFsDataBuilder dirBuilder = new DirNodeFsDataBuilder(path, creationTime, lastModifiedTime, extraFsAttrs);
 
+			if (currDirBuilder == null) {
+				currDirBuilder = new DirNodeFsDataBuilder(NodeNamesPath.ROOT, 0, 0, null);
+			}
 			currDirBuilderStack.add(dirBuilder);
 			this.currDirBuilder = dirBuilder;
 			
@@ -90,15 +96,17 @@ public class JavaNIOFileToNodeFsDataScanner {
 
 		@Override
 		public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-			DirNodeFsData dirNode = new DirNodeFsData(currDirBuilder.path.lastName(), 
+			// pop and add dir to parent
+			boolean isRoot = (currDirBuilder.path.pathElementCount() == 0); 
+			NodeName name = (isRoot)? rootName : currDirBuilder.path.lastName();
+			NodeNamesPath path = (isRoot)? NodeNamesPath.ROOT : currDirBuilder.path;
+			DirNodeFsData dirNode = new DirNodeFsData(name, 
 					currDirBuilder.creationTime, currDirBuilder.lastModifiedTime, currDirBuilder.extraFsAttrs,
 					currDirBuilder.childEntries);
-			callback.caseDir(currDirBuilder.path, dirNode);
-			
-			// pop and add dir to parent
+			callback.caseDir(path, dirNode);
+				
 			int level = currDirBuilderStack.size() - 1;
 			currDirBuilderStack.remove(level);
-			
 			if (level > 0) {
 				val parentNode = currDirBuilderStack.get(level-1);
 				this.currDirBuilder = parentNode;

@@ -93,6 +93,8 @@ public class JavaNIOScan_WriteFile_ReadFile_IT {
 		
 		val millis = System.currentTimeMillis() - startMillis;
 		System.out.println(".. done read file:" + file + ", took " + millis + " ms");
+
+		// TODO recursive scan to count + check valid
 	}
 	
 	@Test

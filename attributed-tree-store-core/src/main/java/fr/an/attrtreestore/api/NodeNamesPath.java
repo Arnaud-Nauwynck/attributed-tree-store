@@ -37,6 +37,10 @@ public final class NodeNamesPath {
 	
 	// ------------------------------------------------------------------------
 
+	public int pathElementCount() {
+		return pathElements.length;
+	}
+
 	public NodeName lastName() {
 		return pathElements[pathElements.length-1];
 	}

@@ -21,7 +21,7 @@ public class FullInMem_TreeData extends TreeData implements IReadTreeData, IWrit
 
 	private final FullInMemNodeEntry rootNode = new FullInMemNodeEntry(null, null, 0, 0L, 0L, new TreeMap<>());
 
-	@AllArgsConstructor
+	// @AllArgsConstructor
 	private static class FullInMemNodeEntry {
 		@Getter
 		final NodeName name;
@@ -34,6 +34,17 @@ public class FullInMem_TreeData extends TreeData implements IReadTreeData, IWrit
 		long synthetisedDataFilePos; 
 
 		TreeMap<NodeName,FullInMemNodeEntry> sortedEntries;
+		
+
+		public FullInMemNodeEntry(NodeName name, NodeData data, int dataAndChildFilePosLen, long recursiveDataLenSum,
+				long synthetisedDataFilePos, TreeMap<NodeName, FullInMemNodeEntry> sortedEntries) {
+			this.name = name;
+			this.data = data;
+			this.dataAndChildFilePosLen = dataAndChildFilePosLen;
+			this.recursiveDataLenSum = recursiveDataLenSum;
+			this.synthetisedDataFilePos = synthetisedDataFilePos;
+			this.sortedEntries = sortedEntries;
+		}
 		
 		FullInMemNodeEntry getChild(NodeName chldName) {
 			if (sortedEntries == null) {
