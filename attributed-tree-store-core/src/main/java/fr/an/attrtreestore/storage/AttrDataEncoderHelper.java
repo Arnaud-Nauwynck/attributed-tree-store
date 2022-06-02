@@ -210,7 +210,7 @@ public class AttrDataEncoderHelper {
 		return res;
 	}
 	
-	protected static int commonStringLen(String left, String right) {
+	/*pp*/ static int commonStringLen(String left, String right) {
 		int i = 0;
 		int len = Math.min(left.length(), right.length());
 		for(; i < len; i++) {

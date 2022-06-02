@@ -99,9 +99,11 @@ public class JavaNIOFileToNodeFsDataScanner {
 			int level = currDirBuilderStack.size() - 1;
 			currDirBuilderStack.remove(level);
 			
-			val parentNode = currDirBuilderStack.get(level-1);
-			this.currDirBuilder = parentNode;
-			parentNode.childEntries.put(dirNode.name, new DirEntryNameAndType(dirNode.name, FsNodeType.DIR));
+			if (level > 0) {
+				val parentNode = currDirBuilderStack.get(level-1);
+				this.currDirBuilder = parentNode;
+				parentNode.childEntries.put(dirNode.name, new DirEntryNameAndType(dirNode.name, FsNodeType.DIR));
+			}
 			
 			return super.postVisitDirectory(dir, exc);
 		}

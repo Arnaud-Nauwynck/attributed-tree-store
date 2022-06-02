@@ -27,8 +27,16 @@ public class NodeData {
 	public final int mask;
 
 	public final ImmutableSet<NodeName> childNames; 
-	
+
+	public int childCount() {
+		return (childNames != null)? childNames.size() : 0;
+	}
+
 	public final ImmutableMap<String,NodeAttr> attrs;
+
+	public int attrCount() {
+		return (attrs != null)? attrs.size() : 0;
+	}
 
 	/** external creationTime from backend if any */
 	public final long externalCreationTime;

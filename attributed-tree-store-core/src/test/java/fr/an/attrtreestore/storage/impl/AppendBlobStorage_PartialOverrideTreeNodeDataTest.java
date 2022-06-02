@@ -9,6 +9,7 @@ import org.junit.Test;
 
 import com.google.common.collect.ImmutableSet;
 
+import fr.an.attrtreestore.TstMkdirDirUtils;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
@@ -23,7 +24,7 @@ import lombok.val;
 
 public class AppendBlobStorage_PartialOverrideTreeNodeDataTest {
 
-	private static final File baseDir = new File("target/test-data/PartialNodeDataByPathTest");
+	private static final File baseDir = TstMkdirDirUtils.initMkdir("target/test-data/PartialNodeDataByPathTest");
 	private static final BlobStorage blobStorage = new FileBlobStorage("test-data", baseDir);
 	private static final AttrInfoIndexes attrIndexes; 
 	private static final NodeNameEncoder nodeNameEncoder = DefaultNodeNameEncoder.createDefault(); 

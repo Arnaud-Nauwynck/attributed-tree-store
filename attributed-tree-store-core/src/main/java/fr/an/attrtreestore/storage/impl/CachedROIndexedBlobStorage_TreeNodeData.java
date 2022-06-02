@@ -18,6 +18,7 @@ import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions;
 import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.storage.impl.IndexedBlobStorage_TreeNodeDataEncoder.NodeDataAndChildFilePos;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.val;
@@ -195,6 +196,95 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData i
 		return res;
 	} 
 
+	// public api for freeing memory by evicting some internal nodes, reloadable later from cache
+	// ------------------------------------------------------------------------
+
+	@Builder
+	public static class FreeMemoryParams {
+		long untilFreedMemSize;
+		
+		int minLevelEvictType1; // for Dir
+		
+		int minLevelEvictType2; // for File
+		
+	}
+
+	@RequiredArgsConstructor
+	private static class EvictContext {
+		private final long untilFreedMemSize;
+		private final int minLevelEvictType1;
+		private final int minLevelEvictType2;
+		
+		private int currLevel;
+		private long currFreedMemSize;
+	}
+	
+	public long freeMemoryByEvictingEntries(
+			FreeMemoryParams params) {
+		if (params.untilFreedMemSize == 0) {
+			params.untilFreedMemSize = 50 * 1024* 1024;
+		}
+		val ctx = new EvictContext(params.untilFreedMemSize, params.minLevelEvictType1, params.minLevelEvictType2);
+		doRecursiveFreeMemory(rootNode, ctx);
+		return ctx.currFreedMemSize;
+	}
+	
+	private void doRecursiveFreeMemory(CachedNodeEntry node, EvictContext ctx) {
+		Object[] childEntries = node.sortedEntries;
+		if (childEntries == null || childEntries.length == 0) {
+			return;
+		}
+		ctx.currLevel++;
+		try {
+			val childCount = childEntries.length;
+			for(int i = 0; i < childCount; i++) {
+				val e = childEntries[i];
+				if (e instanceof CachedNodeEntry) {
+					val childNode = (CachedNodeEntry) e;
+	
+					// *** recurse first (free sub-child, before freeing all tree) ***
+					doRecursiveFreeMemory(childNode, ctx);
+					
+					if (ctx.currFreedMemSize > ctx.untilFreedMemSize) {
+						break; // return;
+					}
+					
+					val type = (childNode.cachedData != null)? childNode.cachedData.type : 0; 
+					boolean decideEvictEntry = false;
+					if (type == 1) {
+						if (ctx.currLevel > ctx.minLevelEvictType1) {
+							decideEvictEntry = true;
+						}
+					} else if (type == 2) {
+						if (ctx.currLevel > ctx.minLevelEvictType2) {
+							decideEvictEntry = true;
+						}
+					}
+					
+					if (decideEvictEntry) {
+						// cache evict child entry.. replaced by NodeHandle
+						val childEntryHandle = new NodeEntryHandle(childNode.name, childNode.dataFilePos);
+						childEntries[i] = childEntryHandle;
+						
+						int estimateNodeMem = 120;
+						if (childNode.cachedData != null) {
+							val data = childNode.cachedData; 
+							estimateNodeMem += 50 * data.attrCount() + 16 * data.childCount();
+						}
+						ctx.currFreedMemSize += estimateNodeMem;
+						if (ctx.currFreedMemSize > ctx.untilFreedMemSize) {
+							return;
+						}
+					}
+
+				}
+			}
+		} finally {
+			ctx.currLevel--;
+		}
+	}
+	
+	
 	// ------------------------------------------------------------------------
 	
 	protected CachedNodeEntry doLoadCachedNodeEntry(NodeEntryHandle entryHandle, long fetchSizeArgs) {

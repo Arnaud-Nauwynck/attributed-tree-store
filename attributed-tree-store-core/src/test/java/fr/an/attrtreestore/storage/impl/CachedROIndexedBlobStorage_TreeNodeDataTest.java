@@ -6,6 +6,7 @@ import java.util.Collections;
 import org.junit.Assert;
 import org.junit.Test;
 
+import fr.an.attrtreestore.TstMkdirDirUtils;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.ROCached_TreeData.IndexedBlobStorageInitMode;
@@ -20,7 +21,7 @@ import lombok.val;
 
 public class CachedROIndexedBlobStorage_TreeNodeDataTest {
 	
-	private static final File baseDir = new File("target/test-data/CachedReadOnlyIndexed");
+	private static final File baseDir = TstMkdirDirUtils.initMkdir("target/test-data/CachedReadOnlyIndexed");
 	private static final BlobStorage blobStorage = new FileBlobStorage("test-data", baseDir);
 	private static final AttrInfoIndexes attrIndexes; 
 	private static final NodeNameEncoder nodeNameEncoder = DefaultNodeNameEncoder.createDefault();
