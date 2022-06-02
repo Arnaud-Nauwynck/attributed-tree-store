@@ -5,12 +5,12 @@ import org.junit.Test;
 
 import com.google.common.collect.ImmutableSet;
 
-import fr.an.attrtreestore.api.FullInMem_TreeData;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoder;
+import fr.an.attrtreestore.storage.impl.InMem_TreeData;
 import lombok.val;
 
 public class TreeTstObj {
@@ -43,7 +43,7 @@ public class TreeTstObj {
 	public static final NodeNamesPath PATH_a_b_c_d2 = NodeNamesPath.of(a, b, c, d2);
 	public static final NodeNamesPath PATH_a_b_c_d3 = NodeNamesPath.of(a, b, c, d3);
 	
-	public final FullInMem_TreeData treeData = new FullInMem_TreeData();
+	public final InMem_TreeData treeData = new InMem_TreeData();
 	
 	public final NodeData data_a;
 	public final NodeData data_a_b;

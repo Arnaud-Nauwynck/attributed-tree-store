@@ -1,4 +1,4 @@
-package fr.an.attrtreestore.api;
+package fr.an.attrtreestore.storage.impl;
 
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
@@ -7,17 +7,26 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.TreeMap;
 
+import fr.an.attrtreestore.api.IReadTreeData;
+import fr.an.attrtreestore.api.IWriteTreeData;
+import fr.an.attrtreestore.api.NodeData;
+import fr.an.attrtreestore.api.NodeName;
+import fr.an.attrtreestore.api.NodeNamesPath;
+import fr.an.attrtreestore.api.TreeData;
 import fr.an.attrtreestore.spi.BlobStorage;
-import fr.an.attrtreestore.storage.impl.IndexedBlobStorage_TreeNodeDataEncoder;
 import fr.an.attrtreestore.util.NoFlushCountingOutputStream;
 import fr.an.attrtreestore.util.NullCountingOutputStream;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.val;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * In-memory implementation of TreeData, with Read + Write
+ * 
+ * ... also contains fields for computing file position of entries, for writing to indexed file
+ */
 @Slf4j
-public class FullInMem_TreeData extends TreeData implements IReadTreeData, IWriteTreeData {
+public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTreeData {
 
 	private final FullInMemNodeEntry rootNode = new FullInMemNodeEntry(null, null, 0, 0L, 0L, new TreeMap<>());
 
@@ -28,6 +37,7 @@ public class FullInMem_TreeData extends TreeData implements IReadTreeData, IWrit
 		
 		NodeData data;
 		
+		// for saving to indexed file
 		// computed from recursive data encoding
 		int dataAndChildFilePosLen; // computed from data
 		long recursiveDataLenSum; // computed from dataAndChildFilePosLen + recursively scan on sortedEntries 
@@ -64,7 +74,7 @@ public class FullInMem_TreeData extends TreeData implements IReadTreeData, IWrit
 	
 	// ------------------------------------------------------------------------
 	
-	public FullInMem_TreeData() {
+	public InMem_TreeData() {
 	}
 
 	// ------------------------------------------------------------------------

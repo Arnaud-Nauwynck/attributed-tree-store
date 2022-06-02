@@ -15,7 +15,6 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import fr.an.attrtreestore.TstMkdirDirUtils;
-import fr.an.attrtreestore.api.FullInMem_TreeData;
 import fr.an.attrtreestore.api.ROCached_TreeData.IndexedBlobStorageInitMode;
 import fr.an.attrtreestore.api.TreeData;
 import fr.an.attrtreestore.api.attrinfo.AttrInfoRegistry;
@@ -29,6 +28,7 @@ import fr.an.attrtreestore.spi.FileBlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.AttrInfoIndexes;
 import fr.an.attrtreestore.storage.impl.CachedROIndexedBlobStorage_TreeNodeData;
+import fr.an.attrtreestore.storage.impl.InMem_TreeData;
 import fr.an.attrtreestore.storage.impl.IndexedBlobStorage_TreeNodeDataEncoder;
 import lombok.val;
 import lombok.extern.slf4j.Slf4j;
@@ -126,8 +126,8 @@ public class JavaNIOScan_WriteFile_ReadFile_IT {
 
 	}
 
-	protected static FullInMem_TreeData scan(Path scannedDir) { 
-		val tree = new FullInMem_TreeData();
+	protected static InMem_TreeData scan(Path scannedDir) { 
+		val tree = new InMem_TreeData();
 		val converter = new NodeFsDataToNodeDataConverter(System.currentTimeMillis());
 		val builder = new FullInMemTree_NodeFsDataCreator(converter, tree);
 		JavaNIOFileToNodeFsDataScanner.scan(scannedDir, nodeNameEncoder, builder);
@@ -135,7 +135,7 @@ public class JavaNIOScan_WriteFile_ReadFile_IT {
 	}
 
 
-	private void doWriteFile(String outputFile, FullInMem_TreeData tree) throws IOException, FileNotFoundException {
+	private void doWriteFile(String outputFile, InMem_TreeData tree) throws IOException, FileNotFoundException {
 		log.info("write to indexed file: " + outputFile);
 		val startMillis = System.currentTimeMillis();
 

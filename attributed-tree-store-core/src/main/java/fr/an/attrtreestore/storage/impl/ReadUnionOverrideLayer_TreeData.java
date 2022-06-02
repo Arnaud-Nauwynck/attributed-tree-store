@@ -1,4 +1,4 @@
-package fr.an.attrtreestore.storage.overrideapi;
+package fr.an.attrtreestore.storage.impl;
 
 import fr.an.attrtreestore.api.IReadTreeData;
 import fr.an.attrtreestore.api.IWriteTreeData;
@@ -6,6 +6,8 @@ import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.ROCached_TreeData;
 import fr.an.attrtreestore.api.TreeData;
+import fr.an.attrtreestore.api.override.OverrideNodeData;
+import fr.an.attrtreestore.api.override.OverrideTreeData;
 import lombok.Getter;
 import lombok.val;
 
@@ -14,19 +16,19 @@ import lombok.val;
  * delegate update/deletes to override layer, else read-only queries to baseReadOnly layer
  *
  */
-public class UnionOverrideRO_TreeData extends TreeData implements IReadTreeData, IWriteTreeData {
+public class ReadUnionOverrideLayer_TreeData extends TreeData implements IReadTreeData, IWriteTreeData {
 
 	@Getter
 	protected final ROCached_TreeData baseReadOnlyTree;
 
 	@Getter
-	protected final PartialOverrideTreeData overrideTree;
+	protected final OverrideTreeData overrideTree;
 	
 	// ------------------------------------------------------------------------
 	
-	public UnionOverrideRO_TreeData(
+	public ReadUnionOverrideLayer_TreeData(
 			ROCached_TreeData baseReadOnlyTree,
-			PartialOverrideTreeData overrideTree) {
+			OverrideTreeData overrideTree) {
 		this.baseReadOnlyTree = baseReadOnlyTree;
 		this.overrideTree = overrideTree;
 	}
@@ -36,7 +38,7 @@ public class UnionOverrideRO_TreeData extends TreeData implements IReadTreeData,
 	// @Deprecated.. shoud use async Api?
 	@Override
 	public NodeData get(NodeNamesPath path) {
-		NodeOverrideData overrideData = overrideTree.getOverride(path);
+		OverrideNodeData overrideData = overrideTree.getOverride(path);
 		if (overrideData != null) {
 			switch(overrideData.status) {
 			case DELETED: return null;

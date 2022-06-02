@@ -15,12 +15,12 @@ import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
+import fr.an.attrtreestore.api.override.OverrideNodeData;
+import fr.an.attrtreestore.api.override.OverrideNodeStatus;
+import fr.an.attrtreestore.api.override.OverrideTreeData;
 import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.AttrInfoIndexes;
-import fr.an.attrtreestore.storage.overrideapi.NodeOverrideData;
-import fr.an.attrtreestore.storage.overrideapi.NodeOverrideStatus;
-import fr.an.attrtreestore.storage.overrideapi.PartialOverrideTreeData;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.val;
@@ -37,14 +37,14 @@ import lombok.extern.slf4j.Slf4j;
  * using internally partial tree node 'PartialNodeEntry', containing 'Map<NodeName, PartialNodeEntry>'
  */
 @Slf4j
-public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverrideTreeData {
+public class AppendBlobStorage_PartialOverrideTreeNodeData extends OverrideTreeData {
 
 	private static final String FILE_HEADER = "append-path-data";
 
 	@AllArgsConstructor
 	private static class PartialNodeEntry {
 		private final NodeName name; // for debug only, else could be implicit..
-		private NodeOverrideStatus overrideStatus;
+		private OverrideNodeStatus overrideStatus;
 		private Map<NodeName,PartialNodeEntry> child;
 		private long dataFilePos;
 		private int dataLen;
@@ -56,7 +56,7 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 			this.cachedData = null;
 		}
 		
-		void setOverrideData(NodeOverrideStatus overrideStatus, long dataFilePos, int dataLen, NodeData cachedData) {
+		void setOverrideData(OverrideNodeStatus overrideStatus, long dataFilePos, int dataLen, NodeData cachedData) {
 			this.overrideStatus = overrideStatus;
 			this.dataFilePos = dataFilePos;
 			this.dataLen = dataLen;
@@ -79,7 +79,7 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 
 	private final AttrDataEncoderHelper attrDataEncoderHelper; 
 	
-	private final PartialNodeEntry rootEntry = new PartialNodeEntry(null, NodeOverrideStatus.NOT_OVERRIDEN, new HashMap<>(), 0L, 0, null);
+	private final PartialNodeEntry rootEntry = new PartialNodeEntry(null, OverrideNodeStatus.NOT_OVERRIDEN, new HashMap<>(), 0L, 0, null);
 
 	private String currFileName;
 
@@ -131,35 +131,35 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 	// public CompletableFuture<NodeOverrideData> asyncGetOverride(NodeNamesPath path) {
 	
 	@Override
-	public NodeOverrideData getOverride(NodeNamesPath path) {
+	public OverrideNodeData getOverride(NodeNamesPath path) {
 		val pathElts = path.pathElements;
 		val pathEltCount = pathElts.length;
 		PartialNodeEntry currEntry = rootEntry;
 		// implicit.. NodeName currName = null;
 		for(int i = 0; i < pathEltCount; i++) {
 			if (currEntry.child == null) {
-				return NodeOverrideData.NOT_OVERRIDEN; 
+				return OverrideNodeData.NOT_OVERRIDEN; 
 			}
 			val pathElt = pathElts[i];
 			val foundChild = currEntry.child.get(pathElt);
 			if (foundChild == null) {
-				return NodeOverrideData.NOT_OVERRIDEN; 
-			} else if (foundChild.overrideStatus == NodeOverrideStatus.DELETED) {
-				return NodeOverrideData.DELETED; 
+				return OverrideNodeData.NOT_OVERRIDEN; 
+			} else if (foundChild.overrideStatus == OverrideNodeStatus.DELETED) {
+				return OverrideNodeData.DELETED; 
 			}
 			currEntry = foundChild;
 			// implicit.. currName = pathElt;
 		}
 		val currName = pathElts[pathEltCount-1];
 		if (currEntry == null) { // should not occur
-			return NodeOverrideData.NOT_OVERRIDEN; 
+			return OverrideNodeData.NOT_OVERRIDEN; 
 		}
-		if (currEntry.overrideStatus == NodeOverrideStatus.DELETED) {
-			return NodeOverrideData.DELETED;
-		} else if (currEntry.overrideStatus == NodeOverrideStatus.UPDATED) {
+		if (currEntry.overrideStatus == OverrideNodeStatus.DELETED) {
+			return OverrideNodeData.DELETED;
+		} else if (currEntry.overrideStatus == OverrideNodeStatus.UPDATED) {
 			val cachedData = currEntry.cachedData;
 			if (cachedData != null) {
-				return new NodeOverrideData(NodeOverrideStatus.UPDATED, cachedData);
+				return new OverrideNodeData(OverrideNodeStatus.UPDATED, cachedData);
 			} else {
 				// need reload data from cache, using filePos
 				// TOCHANGE.. should return a Future<NodeOverrideData> ??
@@ -168,7 +168,7 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 				// **** The Biggy: IO Read (maybe remote) ***
 				val reloadedData = doReadData(currEntry, currName);
 
-				return new NodeOverrideData(NodeOverrideStatus.UPDATED, reloadedData);
+				return new OverrideNodeData(OverrideNodeStatus.UPDATED, reloadedData);
 			}
 		} else {
 			throw new IllegalStateException(); // should not occur
@@ -226,7 +226,7 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 			
 			synchronized(entry) { // useless redundant lock?
 				// update in-memory: mark as 'UPDATED'
-				entry.setOverrideData(NodeOverrideStatus.UPDATED, dataFilePos, dataLen, data);
+				entry.setOverrideData(OverrideNodeStatus.UPDATED, dataFilePos, dataLen, data);
 			}
 		} // synchronized writeLock
 	}
@@ -263,7 +263,7 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 			
 			// update in-memory: mark as 'DELETED' + remove all sub-child if any
 			synchronized(entry) { // useless redundant lock?
-				entry.setOverrideData(NodeOverrideStatus.DELETED, 0, 0, null);
+				entry.setOverrideData(OverrideNodeStatus.DELETED, 0, 0, null);
 				
 				// remove all sub-child overrides if any
 				recursiveDisposeChildMap = entry.child;
@@ -289,8 +289,8 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 			val pathElt = pathElts[i];
 			synchronized(currEntry) {
 				if (setIntermediateEntryUpdated && i+1 < pathEltCount) {
-					if (currEntry.overrideStatus != NodeOverrideStatus.UPDATED) {
-						currEntry.overrideStatus = NodeOverrideStatus.UPDATED;
+					if (currEntry.overrideStatus != OverrideNodeStatus.UPDATED) {
+						currEntry.overrideStatus = OverrideNodeStatus.UPDATED;
 					}
 				}
 				
@@ -301,7 +301,7 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 				if (foundChild == null) {
 					val child = new PartialNodeEntry(
 							pathElt, // for debug only, else could be implicit..
-							NodeOverrideStatus.NOT_OVERRIDEN,
+							OverrideNodeStatus.NOT_OVERRIDEN,
 							new HashMap<NodeName,PartialNodeEntry>(1),
 							0, 0, null // dataFilePos, dataLen, cachedData
 							);
@@ -323,12 +323,12 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 			val pathElt = pathElts[i];
 			synchronized(currEntry) {
 				if (i+1 < pathEltCount) {
-					if (currEntry.overrideStatus == NodeOverrideStatus.DELETED) {
+					if (currEntry.overrideStatus == OverrideNodeStatus.DELETED) {
 						// parent already deleted => deleting sub-child should have no effect!!
 						return null;
 					}
-					if (currEntry.overrideStatus != NodeOverrideStatus.UPDATED) {
-						currEntry.overrideStatus = NodeOverrideStatus.UPDATED;
+					if (currEntry.overrideStatus != OverrideNodeStatus.UPDATED) {
+						currEntry.overrideStatus = OverrideNodeStatus.UPDATED;
 					}
 				}
 				
@@ -339,7 +339,7 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 				if (foundChild == null) {
 					val child = new PartialNodeEntry(
 							pathElt, // for debug only, else could be implicit..
-							NodeOverrideStatus.NOT_OVERRIDEN,
+							OverrideNodeStatus.NOT_OVERRIDEN,
 							new HashMap<NodeName,PartialNodeEntry>(1),
 							0, 0, null // dataFilePos, dataLen, cachedData
 							);
@@ -409,7 +409,7 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 		
 		synchronized(entry) { // useless redundant lock?
 			// update in-memory: mark as 'UPDATED'
-			entry.setOverrideData(NodeOverrideStatus.UPDATED, dataFilePos, dataLen, cachedData);
+			entry.setOverrideData(OverrideNodeStatus.UPDATED, dataFilePos, dataLen, cachedData);
 		}
 	}
 	
@@ -424,7 +424,7 @@ public class AppendBlobStorage_PartialOverrideTreeNodeData extends PartialOverri
 			
 		// update in-memory: mark as 'DELETED' + remove all sub-child if any
 		synchronized(entry) { // useless redundant lock?
-			entry.setOverrideData(NodeOverrideStatus.DELETED, 0, 0, null);
+			entry.setOverrideData(OverrideNodeStatus.DELETED, 0, 0, null);
 			
 			// remove all sub-child overrides if any
 			recursiveDisposeChildMap = entry.child;

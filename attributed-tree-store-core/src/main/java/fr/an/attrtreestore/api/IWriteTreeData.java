@@ -1,6 +1,6 @@
 package fr.an.attrtreestore.api;
 
-public interface IWriteTreeData extends IReadTreeData {
+public interface IWriteTreeData extends IReadTreeData { // TOADD should not extends interface IReadTreeData... but when not available, simply throw ex
 
 	// TODO ... need to provide function to fill intermediate unknown nodes..
 	// public abstract void put_createIntermediate(NodeNamesPath path, NodeData data, Function<NodeNamesPath,NodeData> func);
