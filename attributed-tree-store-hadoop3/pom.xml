@@ -1,0 +1,104 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>fr.an.attrtreestore</groupId>
+		<artifactId>attributed-tree-store-parent</artifactId>
+		<relativePath>..</relativePath>
+		<version>1.0.0-SNAPSHOT</version>
+	</parent>
+	
+    <artifactId>attributed-tree-store-hadoop3</artifactId>
+
+	
+    <dependencies>
+    	<dependency>
+	    	<groupId>fr.an.attrtreestore</groupId>
+			<artifactId>attributed-tree-store-core</artifactId>
+    	</dependency>
+	
+		<dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-common</artifactId>
+            <exclusions>
+            	<exclusion>
+            		<groupId>org.apache.zookeeper</groupId>
+            		<artifactId>zookeeper</artifactId>
+            	</exclusion>
+            	<exclusion>
+            		<groupId>org.eclipse.jetty</groupId>
+            		<artifactId>jetty-server</artifactId>
+            	</exclusion>
+            	<exclusion>
+            		<groupId>org.eclipse.jetty</groupId>
+            		<artifactId>jetty-servlet</artifactId>
+            	</exclusion>
+            	<exclusion>
+            		<groupId>org.eclipse.jetty</groupId>
+            		<artifactId>jetty-webapp</artifactId>
+            	</exclusion>
+            	<exclusion>
+            		<groupId>com.sun.jersey</groupId>
+            		<artifactId>jersey-servlet</artifactId>
+            	</exclusion>
+            	<exclusion>
+            		<groupId>com.sun.jersey</groupId>
+            		<artifactId>jersey-server</artifactId>
+            	</exclusion>
+            	<exclusion>
+            		<groupId>org.apache.curator</groupId>
+            		<artifactId>curator-client</artifactId>
+            	</exclusion>
+            	<exclusion>
+            		<groupId>com.jcraft</groupId>
+            		<artifactId>jsch</artifactId>
+            	</exclusion>
+            	<exclusion>
+            		<groupId>org.apache.curator</groupId>
+            		<artifactId>curator-recipes</artifactId>
+            	</exclusion>
+            </exclusions>
+		</dependency>
+<!--
+        <dependency>
+		    <groupId>org.apache.hadoop</groupId>
+		    <artifactId>hadoop-hdfs</artifactId>
+		</dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-client</artifactId>
+        </dependency>
+-->		
+        
+	
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<scope>provided</scope>
+		</dependency>
+    
+		<dependency>
+		  <groupId>org.slf4j</groupId>
+		  <artifactId>slf4j-api</artifactId>
+		</dependency>
+	
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+                
+      	<dependency>
+      		<groupId>com.google.guava</groupId>
+    		<artifactId>guava</artifactId>
+    		<version>27.0-jre</version>
+        </dependency>
+      
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>

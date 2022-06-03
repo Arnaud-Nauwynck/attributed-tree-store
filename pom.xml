@@ -14,15 +14,32 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
+        
+        <hadoop3.version>3.3.3</hadoop3.version>
 	</properties>
 	
 	<modules>
 		<module>attributed-tree-store-core</module>
+		
+		<!-- deprecated? directly in attributed-tree-store-core -->
 		<module>attributed-tree-store-nio</module>
+		
+		<module>attributed-tree-store-hadoop3</module>
+		<!-- 
+		<module>attributed-tree-store-azure-datalakestorage</module>
+		-->
 	</modules>
 	
 	<dependencyManagement>
       <dependencies>
+			<!-- project modules -->			
+			<dependency>
+			    <groupId>fr.an.attrtreestore</groupId>
+				<artifactId>attributed-tree-store-core</artifactId>
+				<version>1.0.0-SNAPSHOT</version>
+			</dependency>
+
+			<!-- thirdparties -->
 			<dependency>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-dependencies</artifactId>
@@ -37,13 +54,35 @@
 				<version>1.18.24</version>
 				<scope>provided</scope>
 			</dependency>
-			
-			
-			<dependency>
-			    <groupId>fr.an.attrtreestore</groupId>
-				<artifactId>attributed-tree-store-core</artifactId>
-				<version>1.0.0-SNAPSHOT</version>
+
+	        <dependency>
+	            <groupId>org.apache.hadoop</groupId>
+	            <artifactId>hadoop-common</artifactId>
+	            <version>${hadoop3.version}</version>
+	            <exclusions>
+	            	<exclusion>
+	            		<groupId>org.slf4j</groupId>
+	            		<artifactId>slf4j-log4j12</artifactId>
+	            	</exclusion>
+	            </exclusions>
+	        </dependency>
+	        <dependency>
+			    <groupId>org.apache.hadoop</groupId>
+			    <artifactId>hadoop-hdfs</artifactId>
+	            <version>${hadoop3.version}</version>
 			</dependency>
+	        <dependency>
+	            <groupId>org.apache.hadoop</groupId>
+	            <artifactId>hadoop-client</artifactId>
+	            <version>${hadoop3.version}</version>
+	            <exclusions>
+	            	<exclusion>
+	            		<groupId>org.slf4j</groupId>
+	            		<artifactId>slf4j-log4j12</artifactId>
+	            	</exclusion>
+	            </exclusions>
+	        </dependency>
+	
 
 		</dependencies>
 	</dependencyManagement>

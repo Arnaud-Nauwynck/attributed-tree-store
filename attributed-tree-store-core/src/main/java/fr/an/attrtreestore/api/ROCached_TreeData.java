@@ -21,11 +21,11 @@ public abstract class ROCached_TreeData extends TreeData implements IReadTreeDat
 	
 	@Override
 	protected final void put(NodeNamesPath path, NodeData data) {
-		throw new UnsupportedOperationException();
+		throw new UnsupportedOperationException("method from IWritableTreeData should not be used here");
 	}
 	
 	@Override
 	protected void remove(NodeNamesPath path) {
-		throw new UnsupportedOperationException();
+		throw new UnsupportedOperationException("method from IWritableTreeData should not be used here");
 	}
 }
