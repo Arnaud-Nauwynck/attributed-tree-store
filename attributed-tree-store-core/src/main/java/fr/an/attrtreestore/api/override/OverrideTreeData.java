@@ -7,6 +7,8 @@ import fr.an.attrtreestore.api.NodeNamesPath;
 /**
  * abstract class equivalent to persisted <code> Map<NodeNamesPath, NodeOverrideData> </code>
  *
+ * cf sub-classes implementation:
+ * - AppendBlobStorage_PartialOverrideTreeNodeData
  */
 public abstract class OverrideTreeData implements IWriteTreeData {
 
