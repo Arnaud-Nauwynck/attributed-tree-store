@@ -34,7 +34,19 @@ public final class NodeNamesPath {
 		res[len] = childName;
 		return new NodeNamesPath(res);
 	}
+
+	public NodeNamesPath toParent() {
+		val len = pathElements.length;
+		if (len == 0) {
+			// error?
+			return this;
+		}
+		val res = new NodeName[len - 1];
+		System.arraycopy(pathElements, 0, res, 0, len - 1);
+		return new NodeNamesPath(res);
+	}
 	
+
 	// ------------------------------------------------------------------------
 
 	public int pathElementCount() {
@@ -84,5 +96,5 @@ public final class NodeNamesPath {
 	public String toString() {
 		return toPathSlash();
 	}
-	
+
 }

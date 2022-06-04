@@ -21,10 +21,10 @@ public abstract class RefreshableCached_TreeData<TCacheStorageTreeData extends T
 
 	// protected List<NodeNamesPath path> pendingBackgroupRefreshes;
 
-	protected int defaultCacheExpiratioMillis = 10 * 60 * 1000; // 10 minutes
+	protected int defaultCacheExpirationMillis = 10 * 60 * 1000; // 10 minutes
 	protected int defaultUseCacheIfResponseExceedMillis = 3000; // 3 seconds
 	
-	protected long thresholdForBackgroundRefreshMillis = defaultCacheExpiratioMillis - 1000; 
+	protected long thresholdForBackgroundRefreshMillis = defaultCacheExpirationMillis - 1000; 
 	
 	private int cacheGetCount;
 	private int cacheGetHitCount;
@@ -43,7 +43,7 @@ public abstract class RefreshableCached_TreeData<TCacheStorageTreeData extends T
 
 	@Override
 	public NodeData get(NodeNamesPath path) {
-		int cacheExpirationMillis = defaultCacheExpiratioMillis;
+		int cacheExpirationMillis = defaultCacheExpirationMillis;
 		long useCacheIfResponseExceedTime = System.currentTimeMillis() + defaultUseCacheIfResponseExceedMillis;
 		return getCacheWaitMax(path, cacheExpirationMillis, useCacheIfResponseExceedTime);
 	}
