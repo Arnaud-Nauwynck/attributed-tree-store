@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 
 /**
  * read-only data for a node with attributes and child names
@@ -21,7 +22,9 @@ public class NodeData {
 	
 	public final NodeName name;
 
-	/** use-defined type... example: file / node / .. */
+	/** use-defined type... example: dir:1 / file:2  .. */
+	public static final int TYPE_DIR = 1;
+	public static final int TYPE_FILE = 2;
 	public final int type;
 
 	public final int mask;
@@ -50,6 +53,7 @@ public class NodeData {
 	/** System.currentTimeMillis() of the jvm that queried the external backend the last time  
 	 * can be modified without persisting... transient 
 	 */
+	@Getter @Setter
 	private transient long lastExternalRefreshTimeMillis;
 
 	/** internal System.currentTime() of the jvm that modified this path NodeData the last time */
@@ -62,7 +66,7 @@ public class NodeData {
 	/** internal mask for update recomputation propagations 
 	 * (can/)might be modified without persisting .. transient
 	 */
-	@Getter
+	@Getter @Setter
 	private transient int treeDataRecomputationMask;
 
 	
@@ -82,7 +86,7 @@ public class NodeData {
 	/** internal System.currentTime() of the jvm that queried this path NodeData the last time 
 	 * can be modified without persisting... transient 
 	 */
-	@Getter
+	@Getter @Setter
 	private transient long lastTreeDataQueryTimeMillis;
 
 	// ------------------------------------------------------------------------
@@ -91,22 +95,15 @@ public class NodeData {
 		this.treeDataRecomputationMask = treeDataRecomputationMask;
 	}
 
-	public void incrLruCount() {
-		this.lruCount++;  // TODO... need atomic cas
-	}
-	
-	public void setLruCount(int lruCount) {
+	public void setLruCountAndAmortized(int lruCount, int lruAmortizedCount) {
 		this.lruCount = lruCount;
-	}
-
-	public void setLruAmortizedCount(int lruAmortizedCount) {
 		this.lruAmortizedCount = lruAmortizedCount;
 	}
 
-	public void setLastTreeDataQueryTimeMillis(long lastTreeDataQueryTimeMillis) {
-		this.lastTreeDataQueryTimeMillis = lastTreeDataQueryTimeMillis;
+	public void incrUsed(long millis) {
+		this.lruCount++;  // might need atomic cas, but ok if count not exact
+		this.lastTreeDataQueryTimeMillis = millis;
 	}
-
 
 	// ------------------------------------------------------------------------
 	

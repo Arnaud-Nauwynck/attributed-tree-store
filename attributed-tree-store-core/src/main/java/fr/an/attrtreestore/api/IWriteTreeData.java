@@ -12,4 +12,9 @@ public interface IWriteTreeData extends IReadTreeData { // TOADD should not exte
 	
 	public void remove(NodeNamesPath path);
 
+	
+	public default void put_transientFieldsChanged(NodeNamesPath path, NodeData data) {
+		put(path, data);
+	}
+
 }
