@@ -1,7 +1,7 @@
 package fr.an.attrtreestore.storage.impl;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +26,8 @@ import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.RefreshableCached_TreeData;
 import fr.an.attrtreestore.api.TreeData;
 import fr.an.attrtreestore.util.DefaultNamedTreadFactory;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.val;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,16 +38,15 @@ import lombok.extern.slf4j.Slf4j;
 public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWriteTreeData> 
 	extends RefreshableCached_TreeData<TCacheStorageTreeData> {
 
+	protected boolean ownedBackgroundRefreshExecutorService;
 	private final ThreadFactory backgroundRefreshThreadFactory;
 	private final BlockingQueue<Runnable> backgroundRefreshQueue = new SynchronousQueue<Runnable>();
-	// ?? could be a PrioritySet / Map / ?? protected Set<NodeNamesPath> pendingBackgroupRefreshes;
 	protected boolean isRunningBackgroundRefresh;
-	protected boolean ownedBackgroundRefreshExecutorService;
 	// ExecutorService, may be shared, otherwise created on demand and marked as owned for later shutdown()
 	protected ExecutorService backgroundRefreshExecutorService;
 
-	private final ThreadFactory backgroundChangeResolverThreadFactory;
 	protected boolean ownedBackgroundChangedResolverExecutorService;
+	private final ThreadFactory backgroundChangeResolverThreadFactory;
 	// ExecutorService, may be shared, otherwise created on demand and marked as owned for later shutdown()
 	protected ExecutorService backgroundChangeResolverExecutorService;
 	
@@ -70,12 +71,18 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 	private final Object pendingRefreshsLock = new Object();
 
 	// @GuardedBy("pendingRefreshsLock")
-	private Map<NodeNamesPath,PendingRefreshTask> pendingCacheExpiredTasks = new HashMap<>();
-	private int inProgressCacheExpiredTaskCount; // count +1 and -1 at each start/end processing
+	private Map<NodeNamesPath,PendingRefreshTask> pendingCacheExpiredTasks = new LinkedHashMap<>();
+	private int pendingCacheExpiredTaskProcessingCount; // count +1 and -1 at each start/end processing
+	private int pendingCacheExpiredTaskSubmittedCount; // count +1 and -1 at each submit / dequeued
+	@Getter @Setter
+	private int maxSubmittingPendingRefreshTaskCount = 10;
 	
 	// @GuardedBy("pendingRefreshsLock")
-	private Map<NodeNamesPath,PendingRefreshTask> pendingResolveChangeTasks = new HashMap<>();
-	private int inProgressResolveChangeTaskCount; // count +1 and -1 at each start/end processing
+	private Map<NodeNamesPath,PendingRefreshTask> pendingResolveChangeTasks = new LinkedHashMap<>();
+	private int pendingResolveChangeTaskProcessingCount; // count +1 and -1 at each start/end processing
+	private int pendingResolveChangeTaskSubmittedCount; // count +1 and -1 at each submit / dequeued
+	@Getter @Setter
+	private int maxSubmittingResolveChangeTaskCount = 50;
 	
 	// ------------------------------------------------------------------------
 
@@ -161,7 +168,6 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 				NodeData resData;
 				if (newData != null) {
 					// data exist, was in cache(expired)
-					// TODO
 					resData = copyWithLastExternalRefreshTimeMillis(newData, endGetCacheTime);
 					
 					// compare if changed from 'cachedData' to 'newData'
@@ -170,51 +176,15 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 					
 					doCachePut_clearPendingTaskIfAny(path, resData, changedTransientDataOnly);
 					
-					// also compare childNames... for detecting recursive insert/delete on child
-					// TODO
-					
+					// check compare+sync newData.childNames with previously cached
+					resyncCacheChildListOf(path, resData, cachedData);
+							
 				} else {
 					// newData does not exist, but was in cache (expired)
 					// => 'delete' event detected.. 
 					doCacheRemove_clearPendingTaskIfAny(path);
 					
-					// need resolve deleted ancestor parent, and recursive delete from cache
-					// example: "a/b/c/d" detected as deleted .. check parent "a/b/c", then "a/b", then "a" ..
-					val pathElementCount = path.pathElementCount(); // example 4
-					if (pathElementCount > 0) {
-						int ancestorPathLevel = pathElementCount-1; // example
-						NodeNamesPath ancestorPath = path.toParent();
-						NodeData ancestorData = null;
-						for(; ancestorPathLevel > 0; ancestorPathLevel--, ancestorPath=ancestorPath.toParent()) {
-							ancestorData = underlyingTree.get(ancestorPath);
-							if (ancestorData == null) {
-								doCacheRemove_clearPendingTaskIfAny(ancestorPath);
-							} else {
-								break;
-							}
-						}
-						// loop stop either ancestorData==null or ancestorPathLevel==0
-						val prevCachedAncestorData = cachedTree.get(ancestorPath);
-						if (ancestorData != null) {
-							
-							// update ancestor not removed
-							doCachePut_clearPendingTaskIfAny(ancestorPath, ancestorData);
-
-							if (prevCachedAncestorData != null) {
-								// => also check other previous cached ancestor-childs are in sync
-								resyncCacheChildListOf(ancestorPath, ancestorData, prevCachedAncestorData);
-							} // else should not occur?
-							
-						} else { // ancestorPathLevel == 0
-							// should not occur.. all ancestors deleted, even 'rootNode'?
-							NodeNamesPath rootPath = NodeNamesPath.ROOT;
-							val newRootData = new NodeData(path.pathElements[0], 0, 0,
-									ImmutableSet.<NodeName>of(), ImmutableMap.<String,NodeAttr>of(),
-									0L, 0, 0, 0, 0);
-							doCachePut_clearPendingTaskIfAny(rootPath, newRootData);
-						}
-					}
-					// TODO
+					resyncDeletedAncestorOf(path);
 					
 					resData = null;
 				}
@@ -240,11 +210,11 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 				
 				doCachePut_clearPendingTaskIfAny(path, resData);
 
-				// may preload more child in background..
-				if (startedBackgroupRefreshesSupport && resData.childCount() > 0) {
+				// preload more child in background..
+				if (resData.childCount() > 0) {
 					for (val childName : resData.childNames) {
 						val childPath = path.toChild(childName);
-						submitBackgroupRefreshIfStarted(childPath);
+						enqueueRefresh_resolveChange(childPath);
 					}
 				}
 				
@@ -256,8 +226,8 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 			}
 			return resData;
 		}
-
 	}
+
 
 	protected NodeData copyWithLastExternalRefreshTimeMillis(NodeData src, long timeMillis) {
 		return new NodeData(src.name, src.type, src.mask, src.childNames, src.attrs, //
@@ -290,9 +260,48 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 				enqueueRefresh_resolveChange(childPath);
 			}
 		}
-		
 	}
-	
+
+	private void resyncDeletedAncestorOf(NodeNamesPath path) {
+		// need resolve deleted ancestor parent, and recursive delete from cache
+		// example: "a/b/c/d" detected as deleted .. check parent "a/b/c", then "a/b", then "a" ..
+		val pathElementCount = path.pathElementCount(); // example 4
+		if (pathElementCount > 0) {
+			int ancestorPathLevel = pathElementCount-1; // example
+			NodeNamesPath ancestorPath = path.toParent();
+			NodeData ancestorData = null;
+			for(; ancestorPathLevel > 0; ancestorPathLevel--, ancestorPath=ancestorPath.toParent()) {
+				ancestorData = underlyingTree.get(ancestorPath);
+				
+				if (ancestorData == null) {
+					doCacheRemove_clearPendingTaskIfAny(ancestorPath);
+				} else {
+					break;
+				}
+			}
+			// loop stop either ancestorData==null or ancestorPathLevel==0
+			val prevCachedAncestorData = cachedTree.get(ancestorPath);
+			if (ancestorData != null) {
+				
+				// update ancestor not removed
+				doCachePut_clearPendingTaskIfAny(ancestorPath, ancestorData);
+
+				if (prevCachedAncestorData != null) {
+					// => also check other previous cached ancestor-childs are in sync
+					resyncCacheChildListOf(ancestorPath, ancestorData, prevCachedAncestorData);
+				} // else should not occur?
+				
+			} else { // ancestorPathLevel == 0
+				// should not occur.. all ancestors deleted, even 'rootNode'?
+				NodeNamesPath rootPath = NodeNamesPath.ROOT;
+				val newRootData = new NodeData(path.pathElements[0], 0, 0,
+						ImmutableSet.<NodeName>of(), ImmutableMap.<String,NodeAttr>of(),
+						0L, 0, 0, 0, 0);
+				doCachePut_clearPendingTaskIfAny(rootPath, newRootData);
+			}
+		}
+	}
+
 
 	// implements api Cached_TreeData
 	// ------------------------------------------------------------------------
@@ -406,7 +415,7 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 	
 	protected void enqueueRefreshTask(PendingRefreshTask task) {
 		val path = task.path;
-		val reason = task.status; // REFRESH_CACHE_EXPIRED or RESOLVE_CHANGE_DETECTED 
+		val reason = task.status; // REFRESH_CACHE_EXPIRED or RESOLVE_CHANGE_DETECTED
 		synchronized(pendingRefreshsLock) {
 			PendingRefreshTask foundTask = pendingCacheExpiredTasks.get(path);
 			if (foundTask == null) {
@@ -421,6 +430,7 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 				} else { // not found
 					if (foundTask.status == PendingRefreshStatus.RESOLVE_CHANGE_DETECTED) {
 						// already queue.. do nothing
+						return;
 					} else { // if (foundTask.status != PendingRefreshStatus.RESOLVE_CHANGE_DETECTED) {
 						foundTask.status = PendingRefreshStatus.RESOLVE_CHANGE_DETECTED;
 					}
@@ -428,6 +438,7 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 			} else {
 				if (foundTask.status == PendingRefreshStatus.REFRESH_CACHE_EXPIRED) {
 					// already queue.. do nothing
+					return;
 				} else {
 					// change queue
 					pendingCacheExpiredTasks.remove(path);
@@ -435,8 +446,52 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 				}
 			}
 		}
+		
+		// submit in ExecutorService if current inProgress < maxSubmitting
+		if (reason == PendingRefreshStatus.REFRESH_CACHE_EXPIRED) {
+			if (pendingCacheExpiredTaskProcessingCount < maxSubmittingPendingRefreshTaskCount) {
+				val execService = getOrCreateBackgroundCacheExpiredRefreshExecutorService();
+				execService.submit(() -> doExecPendingRefreshTask(task));
+			}
+		} else {
+			if (pendingResolveChangeTaskProcessingCount < maxSubmittingResolveChangeTaskCount) {
+				val execService = getOrCreateBackgroundChangedResolverExecutorService();
+				execService.submit(() -> doExecPendingRefreshTask(task));
+			}
+			
+		}
 	}
 
+	
+	private void doExecPendingRefreshTask(PendingRefreshTask task) {
+		synchronized(pendingRefreshsLock) {
+			inProgressCacheExpiredTaskCount++;
+		}
+		try {
+			// TODO
+			
+		} finally {
+			synchronized(pendingRefreshsLock) {
+				inProgressCacheExpiredTaskCount--;
+				// peek up next (not submitted yet) pending task to submit, by linked priority
+				if (inProgressCacheExpiredTaskCount < maxSubmittingResolveChangeTaskCount
+						) {
+					int totalPending = pendingCacheExpiredTasks.size();
+					int countNotSubmittedYet = totalPending - 
+					if ()
+				}
+			}
+		}
+	}
+
+	private ExecutorService getOrCreateBackgroundCacheExpiredRefreshExecutorService() {
+		ExecutorService res = backgroundRefreshExecutorService;
+		if (res == null) {
+			// TOADD
+			res = ForkJoinPool.commonPool();
+		}
+		return res;
+	}
 	
 	private ExecutorService getOrCreateBackgroundChangedResolverExecutorService() {
 		ExecutorService res = backgroundChangeResolverExecutorService;
