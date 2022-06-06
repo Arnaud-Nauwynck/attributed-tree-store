@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import lombok.val;
 
 /**
  * read-only data for a node with attributes and child names
@@ -122,5 +123,42 @@ public class NodeData {
 				externalLength == other.externalLength;
 	}
 
+	public boolean equalsIgnoreTransientFields(NodeData newData) {
+		if (!name.equals(newData.name)) { // should be useless
+			return false;
+		}
+		if (type != newData.type
+				|| mask != newData.mask
+				|| childCount() != newData.childCount()
+				|| attrCount() != newData.attrCount()
+				|| externalCreationTime != newData.externalCreationTime
+				|| externalLastModifiedTime != newData.externalLastModifiedTime
+				|| externalLength != newData.externalLength
+				|| lastTreeDataUpdateTimeMillis != newData.lastTreeDataUpdateTimeMillis
+				|| ! childNames.containsAll(newData.childNames)
+				|| ! attrs.keySet().containsAll(newData.attrs.keySet())	
+				) {
+			return false;
+		}
+		// ignore transient fiels: lastExternalRefreshTimeMillis, treeDataRecomputationMask, lruCount, lruAmortizedCount, lastTreeDataQueryTimeMillis
+		for(val e : attrs.entrySet()) {
+			val attrName = e.getKey();
+			NodeAttr attrValue = e.getValue();
+			NodeAttr newAttrValue = newData.attrs.get(attrName);
+			if (! attrValue.equals(newAttrValue)) {
+				return false;
+			}
+		}
+		return true;
+	}
 
+	public boolean compareTransientFields(NodeData newData) {
+		return (lastExternalRefreshTimeMillis == newData.lastExternalRefreshTimeMillis
+				&& treeDataRecomputationMask == newData.treeDataRecomputationMask
+				&& lruCount == newData.lruCount
+				&& lruAmortizedCount == newData.lruAmortizedCount
+				&& lastTreeDataQueryTimeMillis == newData.lastTreeDataQueryTimeMillis
+				);
+	}
+		
 }

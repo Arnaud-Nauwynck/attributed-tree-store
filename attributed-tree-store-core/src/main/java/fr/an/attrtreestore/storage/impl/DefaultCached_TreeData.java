@@ -46,6 +46,7 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 	protected ExecutorService backgroundRefreshExecutorService;
 
 	protected boolean ownedBackgroundChangedResolverExecutorService;
+	private boolean useCommonForkJoinPoolForBackgroundChangedResolver = true;
 	private final ThreadFactory backgroundChangeResolverThreadFactory;
 	// ExecutorService, may be shared, otherwise created on demand and marked as owned for later shutdown()
 	protected ExecutorService backgroundChangeResolverExecutorService;
@@ -60,7 +61,7 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 	protected class PendingRefreshTask {
 		private final NodeNamesPath path;
 		PendingRefreshStatus status;
-		Future<Void> submitedFuture;
+		Future<?> submitedFuture;
 		
 		public PendingRefreshTask(NodeNamesPath path, PendingRefreshStatus status) {
 			this.path = path;
@@ -94,7 +95,7 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 		super(displayName, displayBaseUrl, underlyingTree, cachedTree);
 		
 		this.backgroundRefreshThreadFactory = new DefaultNamedTreadFactory("Background-Refresh-", " " + displayName, true);
-		this.backgroundChangeResolverThreadFactory = new DefaultNamedTreadFactory("Background-Conflict-Resolver-", " " + displayName, true);
+		this.backgroundChangeResolverThreadFactory = new DefaultNamedTreadFactory("Background-Change-Resolver-", " " + displayName, true);
 	}
 
 	// implements Cached_TreeData 
@@ -171,14 +172,16 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 					resData = copyWithLastExternalRefreshTimeMillis(newData, endGetCacheTime);
 					
 					// compare if changed from 'cachedData' to 'newData'
-					// TODO
-					boolean changedTransientDataOnly = false;
+					boolean equalsIgnoreTransient = cachedData.equalsIgnoreTransientFields(newData);
+					boolean equals = equalsIgnoreTransient && cachedData.compareTransientFields(newData);
 					
-					doCachePut_clearPendingTaskIfAny(path, resData, changedTransientDataOnly);
+					doCachePut_clearPendingTaskIfAny(path, resData, equalsIgnoreTransient, equals);
+
+					if (!equalsIgnoreTransient) {
+						// check compare+sync newData.childNames with previously cached
+						resyncCacheChildListOf(path, resData, cachedData);
+					}
 					
-					// check compare+sync newData.childNames with previously cached
-					resyncCacheChildListOf(path, resData, cachedData);
-							
 				} else {
 					// newData does not exist, but was in cache (expired)
 					// => 'delete' event detected.. 
@@ -311,14 +314,7 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 		this.isRunningBackgroundRefresh = true;
 		
 		if (backgroundRefreshExecutorService == null) {
-			this.ownedBackgroundRefreshExecutorService = true;
-			log.info("create ThreadPoolExecutor(core=0, max=1..) for Background-Refresh-* " + displayName);
-			this.backgroundRefreshExecutorService = new ThreadPoolExecutor( //
-					0, // core pool size .. so scaling to 0 when not needed 
-					1, // max pool size
-	                60L, TimeUnit.SECONDS, // keepAliveTimeout
-	                backgroundRefreshQueue,
-	                backgroundRefreshThreadFactory);
+			getOrCreateBackgroundCacheExpiredRefreshExecutorService();
 		}
 	}
 
@@ -330,6 +326,7 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 			val executorService = this.backgroundRefreshExecutorService;
 			if (executorService != null) {
 				this.backgroundRefreshExecutorService = null;
+				this.ownedBackgroundRefreshExecutorService = false;
 				log.info("ThreadPoolExecutor.shutdownNow() for Background-Refresh-* " + displayName);
 				executorService.shutdownNow(); // pending tasks are returned.. will not be processed 
 			}
@@ -376,15 +373,17 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 	}
 	
 	protected void doCachePut_clearPendingTaskIfAny(NodeNamesPath path, NodeData data) {
-		doCachePut_clearPendingTaskIfAny(path, data, false);
+		doCachePut_clearPendingTaskIfAny(path, data, false, false);
 	}
 
-	protected void doCachePut_clearPendingTaskIfAny(NodeNamesPath path, NodeData data, boolean changedTransientDataOnly) {
-		if (! changedTransientDataOnly) {
-			cachedTree.put(path, data);
-		} else {
-			// TODO ... changedTransientDataOnly
-			cachedTree.put_transientFieldsChanged(path, data);
+	protected void doCachePut_clearPendingTaskIfAny(NodeNamesPath path, NodeData data, 
+			boolean equalsIgnoreTransientFields, boolean equals) {
+		if (! equals) {
+			if (! equalsIgnoreTransientFields) {
+				cachedTree.put(path, data);
+			} else {
+				cachedTree.put_transientFieldsChanged(path, data);
+			}
 		}
 		clearPendingTaskIfAny(path);
 	}
@@ -451,44 +450,108 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 		if (reason == PendingRefreshStatus.REFRESH_CACHE_EXPIRED) {
 			if (pendingCacheExpiredTaskProcessingCount < maxSubmittingPendingRefreshTaskCount) {
 				val execService = getOrCreateBackgroundCacheExpiredRefreshExecutorService();
-				execService.submit(() -> doExecPendingRefreshTask(task));
+				execService.submit(() -> doProcessPendingRefreshTaskAndSubmitNext(task));
 			}
 		} else {
 			if (pendingResolveChangeTaskProcessingCount < maxSubmittingResolveChangeTaskCount) {
 				val execService = getOrCreateBackgroundChangedResolverExecutorService();
-				execService.submit(() -> doExecPendingRefreshTask(task));
+				execService.submit(() -> doProcessPendingChangedResolverTaskAndSubmitNext(task));
 			}
 			
 		}
 	}
 
-	
-	private void doExecPendingRefreshTask(PendingRefreshTask task) {
+	protected void doRefreshCache(NodeNamesPath path) {
+		int cacheExpirationMillis = 0;
+		long useCacheIfResponseExceedTimeMillis = System.currentTimeMillis() + 100000;
+		getCacheWaitMax(path, cacheExpirationMillis, useCacheIfResponseExceedTimeMillis);
+	}
+		
+	private void doProcessPendingRefreshTaskAndSubmitNext(PendingRefreshTask task) {
+		boolean proceed;
 		synchronized(pendingRefreshsLock) {
-			inProgressCacheExpiredTaskCount++;
+			pendingCacheExpiredTaskProcessingCount++;
+			pendingCacheExpiredTaskSubmittedCount--;
+			pendingCacheExpiredTasks.remove(task.path);
+			proceed = !(task.status == PendingRefreshStatus.CANCEL_TASK_SKIP_REFRESH
+					|| task.status == PendingRefreshStatus.IN_PROGRESS // should not occur
+					); 
+			task.status = PendingRefreshStatus.IN_PROGRESS;
 		}
 		try {
-			// TODO
-			
+			if (proceed) {
+				doRefreshCache(task.path);
+			}
+		} catch(Exception ex) {
+			log.error("Failed proceed pending refresh task.. ignore? re-submit later?", ex);
 		} finally {
 			synchronized(pendingRefreshsLock) {
-				inProgressCacheExpiredTaskCount--;
-				// peek up next (not submitted yet) pending task to submit, by linked priority
-				if (inProgressCacheExpiredTaskCount < maxSubmittingResolveChangeTaskCount
-						) {
-					int totalPending = pendingCacheExpiredTasks.size();
-					int countNotSubmittedYet = totalPending - 
-					if ()
+				pendingCacheExpiredTaskProcessingCount--;
+				int totalPending = pendingCacheExpiredTasks.size();
+				int countNotSubmittedYet = totalPending - pendingCacheExpiredTaskProcessingCount - pendingCacheExpiredTaskSubmittedCount;
+				if (countNotSubmittedYet > 0) {
+					// peek up next (not submitted yet) pending task to submit, by linked priority
+					for(val nextSubmitTask: pendingCacheExpiredTasks.values()) {
+						if (nextSubmitTask.submitedFuture == null) {
+							val execService = getOrCreateBackgroundCacheExpiredRefreshExecutorService();
+							nextSubmitTask.submitedFuture = execService.submit(() -> doProcessPendingRefreshTaskAndSubmitNext(nextSubmitTask));
+							pendingCacheExpiredTaskSubmittedCount++;
+							break;
+						}
+					}
 				}
 			}
 		}
 	}
 
+	private void doProcessPendingChangedResolverTaskAndSubmitNext(PendingRefreshTask task) {
+		boolean proceed;
+		synchronized(pendingRefreshsLock) {
+			pendingResolveChangeTaskProcessingCount++;
+			pendingResolveChangeTaskSubmittedCount--;
+			pendingResolveChangeTasks.remove(task.path);
+			proceed = !(task.status == PendingRefreshStatus.CANCEL_TASK_SKIP_REFRESH
+					|| task.status == PendingRefreshStatus.IN_PROGRESS // should not occur
+					); 
+			task.status = PendingRefreshStatus.IN_PROGRESS;
+		}
+		try {
+			if (proceed) {
+				doRefreshCache(task.path);
+			}
+		} catch(Exception ex) {
+			log.error("Failed proceed pending changed resolver task.. ignore? re-submit later?", ex);
+		} finally {
+			synchronized(pendingRefreshsLock) {
+				pendingResolveChangeTaskProcessingCount--;
+				int totalPending = pendingResolveChangeTasks.size();
+				int countNotSubmittedYet = totalPending - pendingResolveChangeTaskProcessingCount - pendingResolveChangeTaskSubmittedCount;
+				if (countNotSubmittedYet > 0) {
+					// peek up next (not submitted yet) pending task to submit, by linked priority
+					for(val nextSubmitTask: pendingResolveChangeTasks.values()) {
+						if (nextSubmitTask.submitedFuture == null) {
+							val execService = getOrCreateBackgroundChangedResolverExecutorService();
+							nextSubmitTask.submitedFuture = execService.submit(() -> doProcessPendingChangedResolverTaskAndSubmitNext(nextSubmitTask));
+							pendingResolveChangeTaskSubmittedCount++;
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+	
 	private ExecutorService getOrCreateBackgroundCacheExpiredRefreshExecutorService() {
 		ExecutorService res = backgroundRefreshExecutorService;
 		if (res == null) {
-			// TOADD
-			res = ForkJoinPool.commonPool();
+			int coreSize = 0; // core pool size .. so scaling to 0 when not needed
+			int maxSize = 1;
+			log.info("create ThreadPoolExecutor(core=" + coreSize + ", max=" + maxSize + "..) for Background-Refresh-* " + displayName);
+			this.ownedBackgroundRefreshExecutorService = true;
+			this.backgroundRefreshExecutorService = new ThreadPoolExecutor(coreSize, maxSize, //
+	                60L, TimeUnit.SECONDS, // keepAliveTimeout
+	                backgroundRefreshQueue,
+	                backgroundRefreshThreadFactory);
 		}
 		return res;
 	}
@@ -496,14 +559,20 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 	private ExecutorService getOrCreateBackgroundChangedResolverExecutorService() {
 		ExecutorService res = backgroundChangeResolverExecutorService;
 		if (res == null) {
-			// TOADD
-			res = ForkJoinPool.commonPool();
+			if (useCommonForkJoinPoolForBackgroundChangedResolver) {
+				res = ForkJoinPool.commonPool();
+			} else {
+				int coreSize = 0; // core pool size .. so scaling to 0 when not needed
+				int maxSize = 10;
+				log.info("create ThreadPoolExecutor(core=" + coreSize + ", max=" + maxSize + "..) for Background-Change-Resolver-* " + displayName);
+				this.ownedBackgroundRefreshExecutorService = true;
+				this.backgroundRefreshExecutorService = new ThreadPoolExecutor(coreSize, maxSize, //
+		                60L, TimeUnit.SECONDS, // keepAliveTimeout
+		                new SynchronousQueue<>(),
+		                backgroundChangeResolverThreadFactory);
+			}
 		}
 		return res;
-	}
-
-	protected void sumitBackgroundChangeResolver() {
-		
 	}
 	
 }
