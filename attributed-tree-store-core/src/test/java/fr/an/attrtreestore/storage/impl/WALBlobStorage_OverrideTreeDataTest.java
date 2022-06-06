@@ -18,16 +18,18 @@ import fr.an.attrtreestore.api.override.OverrideNodeStatus;
 import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoder;
 import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.spi.FileBlobStorage;
+import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.AttrInfoIndexes;
 import fr.an.attrtreestore.storage.api.TreeDataTstGenerator;
 import lombok.val;
 
-public class AppendBlobStorage_PartialOverrideTreeNodeDataTest {
+public class WALBlobStorage_OverrideTreeDataTest {
 
 	private static final File baseDir = TstMkdirDirUtils.initMkdir("target/test-data/PartialNodeDataByPathTest");
 	private static final BlobStorage blobStorage = new FileBlobStorage("test-data", baseDir);
 	private static final AttrInfoIndexes attrIndexes; 
 	private static final NodeNameEncoder nodeNameEncoder = DefaultNodeNameEncoder.createDefault(); 
+	private static final AttrDataEncoderHelper attrDataEncoderHelper;
 	
 	TreeDataTstGenerator gen = new TreeDataTstGenerator();
 
@@ -40,16 +42,16 @@ public class AppendBlobStorage_PartialOverrideTreeNodeDataTest {
 	
 	static {
 		baseDir.mkdirs();
-		attrIndexes = new AttrInfoIndexes(Collections.emptyList()); 
+		attrIndexes = new AttrInfoIndexes(Collections.emptyList());
+		attrDataEncoderHelper = new AttrDataEncoderHelper(attrIndexes, nodeNameEncoder);
 	}
 			
 	@Test
 	public void test_put_get_remove() {
-		val sut = new AppendBlobStorage_PartialOverrideTreeNodeData(
-				blobStorage, "test1", attrIndexes, nodeNameEncoder);
+		val sut = new WALBlobStorage_OverrideTreeData(blobStorage, "test1", attrDataEncoderHelper);
 		sut.initCreateEmpty();
 		
-		Supplier<AppendBlobStorage_PartialOverrideTreeNodeData> reloader = () -> reloadFromFile("test1");
+		Supplier<WALBlobStorage_OverrideTreeData> reloader = () -> reloadFromFile("test1");
 		
 		// -- Step 1 --
 		NodeData data1_a_b_c = gen.createDirData(c, ImmutableSet.of(d1, d2));
@@ -131,9 +133,8 @@ public class AppendBlobStorage_PartialOverrideTreeNodeDataTest {
 		
 	}
 	
-	private static AppendBlobStorage_PartialOverrideTreeNodeData reloadFromFile(String baseFilename) {
-		val res = new AppendBlobStorage_PartialOverrideTreeNodeData(
-				blobStorage, "test1", attrIndexes, nodeNameEncoder);
+	private static WALBlobStorage_OverrideTreeData reloadFromFile(String baseFilename) {
+		val res = new WALBlobStorage_OverrideTreeData(blobStorage, "test1", attrDataEncoderHelper);
 		res.initReload();
 		return res;
 	}
