@@ -43,7 +43,7 @@ public class NodeFsAdapterTreeData extends TreeData implements IReadTreeData {
 			val dir = (DirNodeFsData) fsData;
 			type = NodeData.TYPE_DIR;
 			externalLength = 0;
-			val sortedNames = new TreeSet<>(dir.getChildEntries().keySet()); // redundant?
+			TreeSet<NodeName> sortedNames = dir.getChildNames(); // already sorted TreeSet
 			childNames = ImmutableSet.copyOf(sortedNames);
 		} else {
 			val file = (FileNodeFsData) fsData;

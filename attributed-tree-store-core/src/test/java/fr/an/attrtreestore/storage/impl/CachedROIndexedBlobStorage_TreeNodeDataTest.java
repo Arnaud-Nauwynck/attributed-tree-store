@@ -25,7 +25,7 @@ public class CachedROIndexedBlobStorage_TreeNodeDataTest {
 	private static final BlobStorage blobStorage = new FileBlobStorage("test-data", baseDir);
 	private static final AttrInfoIndexes attrIndexes; 
 	private static final NodeNameEncoder nodeNameEncoder = DefaultNodeNameEncoder.createDefault();
-	private static AttrDataEncoderHelper attrDataEncoder; 
+	private static final AttrDataEncoderHelper attrDataEncoder; 
 	private static final IndexedBlobStorage_TreeNodeDataEncoder indexedEncoder;
 
 	static {

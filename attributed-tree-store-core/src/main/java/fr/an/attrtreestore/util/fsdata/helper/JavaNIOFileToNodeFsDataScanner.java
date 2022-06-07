@@ -9,15 +9,13 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.TreeMap;
+import java.util.TreeSet;
 
 import com.google.common.collect.ImmutableMap;
 
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
-import fr.an.attrtreestore.util.fsdata.DirEntryNameAndType;
-import fr.an.attrtreestore.util.fsdata.FsNodeType;
 import fr.an.attrtreestore.util.fsdata.NodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.DirNodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.FileNodeFsData;
@@ -47,7 +45,8 @@ public class JavaNIOFileToNodeFsDataScanner {
 		private final long creationTime;
 		private final long lastModifiedTime;
 		private final ImmutableMap<String,Object> extraFsAttrs;
-		private final TreeMap<NodeName,DirEntryNameAndType> childEntries = new TreeMap<NodeName,DirEntryNameAndType>();
+		// private final TreeMap<NodeName,DirEntryNameAndType> childEntries = new TreeMap<NodeName,DirEntryNameAndType>();
+		private final TreeSet<NodeName> childNames = new TreeSet<NodeName>();
 	}
 	
 	protected static class JavaNIOToNodeFsDataFileVisitor extends SimpleFileVisitor<Path> {
@@ -102,7 +101,7 @@ public class JavaNIOFileToNodeFsDataScanner {
 			NodeNamesPath path = (isRoot)? NodeNamesPath.ROOT : currDirBuilder.path;
 			DirNodeFsData dirNode = new DirNodeFsData(name, 
 					currDirBuilder.creationTime, currDirBuilder.lastModifiedTime, currDirBuilder.extraFsAttrs,
-					currDirBuilder.childEntries);
+					currDirBuilder.childNames);
 			callback.caseDir(path, dirNode);
 				
 			int level = currDirBuilderStack.size() - 1;
@@ -110,7 +109,8 @@ public class JavaNIOFileToNodeFsDataScanner {
 			if (level > 0) {
 				val parentNode = currDirBuilderStack.get(level-1);
 				this.currDirBuilder = parentNode;
-				parentNode.childEntries.put(dirNode.name, new DirEntryNameAndType(dirNode.name, FsNodeType.DIR));
+				// parentNode.childEntries.put(dirNode.name, new DirEntryNameAndType(dirNode.name, FsNodeType.DIR));
+				parentNode.childNames.add(dirNode.name);
 			}
 			
 			return super.postVisitDirectory(dir, exc);
@@ -158,7 +158,8 @@ public class JavaNIOFileToNodeFsDataScanner {
 //			    Set<PosixFilePermission> permissions();
 				}
 				
-				this.currDirBuilder.childEntries.put(name, new DirEntryNameAndType(name, FsNodeType.FILE));
+				// this.currDirBuilder.childEntries.put(name, new DirEntryNameAndType(name, FsNodeType.FILE));
+				this.currDirBuilder.childNames.add(name);
 			}
 			
 			return FileVisitResult.CONTINUE;

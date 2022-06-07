@@ -88,6 +88,16 @@ public final class NodeNamesPath {
 		return sb.toString();
 	}
 
+	public String[] toTexts() {
+		val len = pathElements.length;
+		val res = new String[len];
+		for(int i = 0; i < len; i++) {
+			res[i] = pathElements[i].toText();
+		}
+		return res;
+	}
+
+	
 	// ------------------------------------------------------------------------
 
 	@Override

@@ -18,7 +18,7 @@ public class NodeFsDataToNodeDataConverter {
 	private final long lastExternalRefreshTimeMillis; //  = System.currentTimeMillis(); // must take timestamp before querying..
 	
 	public NodeData toNodeData(DirNodeFsData src) {
-		val childNames = ImmutableSet.copyOf(src.childEntries.keySet()); 
+		val childNames = ImmutableSet.copyOf(src.childNames); 
 		return toNodeData(src, 1, 0L, childNames);
 	}
 	

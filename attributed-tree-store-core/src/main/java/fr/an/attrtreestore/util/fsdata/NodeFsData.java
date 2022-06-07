@@ -1,6 +1,7 @@
 package fr.an.attrtreestore.util.fsdata;
 
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -60,13 +61,13 @@ public abstract class NodeFsData {
 	public static class DirNodeFsData extends NodeFsData {
 		
 		// (may be immutable) ensured sorted + unique per name 
-		public final TreeMap<NodeName,DirEntryNameAndType> childEntries;
+		public final TreeSet<NodeName> childNames;
 
 		public DirNodeFsData(NodeName name, long creationTime, long lastModifiedTime, 
 				ImmutableMap<String,Object> extraFsAttrs, //
-				TreeMap<NodeName,DirEntryNameAndType> childEntries) {
+				TreeSet<NodeName> childNames) {
 			super(name, creationTime, lastModifiedTime, extraFsAttrs);
-			this.childEntries = childEntries;
+			this.childNames = childNames;
 		}
 		
 		@Override

@@ -2,6 +2,7 @@ package fr.an.attrtreestore.api;
 
 import java.util.concurrent.Future;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,17 +27,28 @@ public abstract class RefreshableCached_TreeData<TCacheStorageTreeData extends T
 	
 	protected long thresholdForBackgroundRefreshMillis = defaultCacheExpirationMillis - 1000; 
 	
+	@Getter
 	private int cacheGetCount;
+	@Getter
 	private int cacheGetHitCount;
+	@Getter
 	private int cacheGetHitTotalMillis;
+	@Getter
 	private int cacheGetHitButExpiredCount;
+	@Getter
 	private int cacheGetHitButExpiredTotalMillis;
+	@Getter
 	private int cacheGetMissCount;
+	@Getter
 	private int cacheGetMissTotalMillis;
 
+	@Getter
 	private int underlyingGetCount;
+	@Getter
 	private long underlyingGetTotalMillis;
+	@Getter
 	private int underlyingGetFailedCount;
+	@Getter
 	private long underlyingGetFailedTotalMillis;
 	
 	// ------------------------------------------------------------------------

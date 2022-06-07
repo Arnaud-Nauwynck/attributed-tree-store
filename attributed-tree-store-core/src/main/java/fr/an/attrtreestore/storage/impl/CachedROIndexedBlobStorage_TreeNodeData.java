@@ -140,8 +140,9 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData i
 			break;
 
 		case INIT_EMPTY:
-			// do nothing
+			this.rootNode.sortedEntries = new Object[0];
 			break;
+
 		case NOT_INITIALIZED:
 			// do nothing
 			break;

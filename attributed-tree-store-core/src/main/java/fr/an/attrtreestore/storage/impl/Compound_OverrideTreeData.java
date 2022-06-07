@@ -21,7 +21,7 @@ public class Compound_OverrideTreeData extends OverrideTreeData {
 	// ------------------------------------------------------------------------
 	
 	public Compound_OverrideTreeData(List<? extends OverrideTreeData> src) {
-		this(src.toArray(new Compound_OverrideTreeData[src.size()]));
+		this(src.toArray(new OverrideTreeData[src.size()]));
 	}
 
 	public Compound_OverrideTreeData(OverrideTreeData[] src) {
