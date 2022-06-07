@@ -35,6 +35,24 @@ public final class NodeNamesPath {
 		return new NodeNamesPath(res);
 	}
 
+	public boolean startsWith(NodeName name) {
+		if (pathElements.length < 1) {
+			return false;
+		}
+		return pathElements[0].equals(name);
+	}
+
+	/**
+	 * @param start len to prune
+	 * @return pruned path, example "a/b/c"  pruneStartPath(1) -> "b/c"
+	 */
+	public NodeNamesPath pruneStartPath(int start) {
+		val len = pathElements.length; 
+		val res = new NodeName[len - start];
+		System.arraycopy(pathElements, start, res, 0, len-start);
+		return new NodeNamesPath(res);
+	}
+	
 	public NodeNamesPath toParent() {
 		val len = pathElements.length;
 		if (len == 0) {

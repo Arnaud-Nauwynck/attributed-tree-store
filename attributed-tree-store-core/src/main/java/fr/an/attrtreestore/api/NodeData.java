@@ -160,5 +160,29 @@ public class NodeData {
 				&& lastTreeDataQueryTimeMillis == newData.lastTreeDataQueryTimeMillis
 				);
 	}
-		
+
+	public void setInternalFields(NodeDataInternalFields src) {
+		this.lastExternalRefreshTimeMillis = src.lastExternalRefreshTimeMillis;
+		this.treeDataRecomputationMask = src.treeDataRecomputationMask;
+		this.lruCount = src.lruCount;
+		this.lruAmortizedCount = src.lruAmortizedCount;
+		this.lastTreeDataQueryTimeMillis = src.lastTreeDataQueryTimeMillis;
+	}
+
+	public NodeDataInternalFields toInternalFields() {
+		return new NodeDataInternalFields (lastExternalRefreshTimeMillis,
+				treeDataRecomputationMask,
+				lruCount, lruAmortizedCount,
+				lastTreeDataQueryTimeMillis);
+	}
+
+	@AllArgsConstructor @Getter
+	public static class NodeDataInternalFields {
+		public final long lastExternalRefreshTimeMillis; 
+		public final int treeDataRecomputationMask; 
+		public final int lruCount;
+		public final int lruAmortizedCount;
+		public final long lastTreeDataQueryTimeMillis;
+	}
+
 }

@@ -138,7 +138,10 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData i
 			// current restriction... only 2g for int=2^32
 			initReloadRoot(fileLen);
 			break;
-			
+
+		case INIT_EMPTY:
+			// do nothing
+			break;
 		case NOT_INITIALIZED:
 			// do nothing
 			break;

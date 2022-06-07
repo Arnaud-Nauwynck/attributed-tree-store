@@ -12,6 +12,7 @@ import java.util.Map;
 import com.google.common.io.CountingInputStream;
 
 import fr.an.attrtreestore.api.NodeData;
+import fr.an.attrtreestore.api.NodeData.NodeDataInternalFields;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
@@ -40,15 +41,21 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 
 	private static final String FILE_HEADER = "wal-override-tree-data";
 
+	private static final byte ENTRY_NODE_UPDATE = ' '; 
+	private static final byte ENTRY_NODE_REMOVED = '-';
+	private static final byte ENTRY_NODE_ATTR_CHANGED = 'a';
+	private static final byte ENTRY_NODE_INTERNAL_FIELDS_CHANGED = 'i';
+
 	@AllArgsConstructor
-	private static class PartialNodeEntry {
+	private static class OverrideNodeEntry {
 		private final NodeName name; // for debug only, else could be implicit..
 		private OverrideNodeStatus overrideStatus;
-		private Map<NodeName,PartialNodeEntry> child;
+		private Map<NodeName,OverrideNodeEntry> child;
 		private long dataFilePos;
 		private int dataLen;
 		private NodeData cachedData;
-
+		private NodeDataInternalFields internalFields;
+		
 		void setMarkDisposed() {
 			this.overrideStatus = null; // NodeOverrideStatus.INTERNAL_ENTRY_DISPOSED; // ??
 			this.child = null;
@@ -60,6 +67,14 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 			this.dataFilePos = dataFilePos;
 			this.dataLen = dataLen;
 			this.cachedData = cachedData;
+		}
+		
+		void setOverrideInternalFields(NodeDataInternalFields internalFields) {
+			if (cachedData != null) {
+				cachedData.setInternalFields(internalFields);
+			} else {
+				this.internalFields = internalFields;
+			}
 		}
 		
 		@Override
@@ -74,13 +89,11 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 
 	private final BlobStorage blobStorage;
 	@Getter
-	private final String baseFileName;
+	private final String fileName;
 
 	private final AttrDataEncoderHelper attrDataEncoderHelper; 
 	
-	private final PartialNodeEntry rootEntry = new PartialNodeEntry(null, OverrideNodeStatus.NOT_OVERRIDEN, new HashMap<>(), 0L, 0, null);
-
-	private String currFileName;
+	private final OverrideNodeEntry rootEntry = new OverrideNodeEntry(null, OverrideNodeStatus.NOT_OVERRIDEN, new HashMap<>(), 0L, 0, null, null);
 
 	private final Object writeLock = new Object();
 
@@ -91,16 +104,15 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	
 	// ------------------------------------------------------------------------
 
-	public WALBlobStorage_OverrideTreeData(BlobStorage blobStorage, String baseFileName,
+	public WALBlobStorage_OverrideTreeData(BlobStorage blobStorage, String fileName,
 			AttrDataEncoderHelper attrDataEncoderHelper) {
 		this.blobStorage = blobStorage;
-		this.baseFileName = baseFileName;
+		this.fileName = fileName;
 		this.attrDataEncoderHelper = attrDataEncoderHelper;
-		this.currFileName = baseFileName + "-0.data";
 	}
 
 	public void initCreateEmptyOrReload() {
-		if (! blobStorage.exists(currFileName)) {
+		if (! blobStorage.exists(fileName)) {
 			initCreateEmpty();
 		} else {
 			initReload();
@@ -110,7 +122,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	public void initCreateEmpty() {
 		// create empty file
 		byte[] header = FILE_HEADER.getBytes(); 
-		blobStorage.writeFile(currFileName, header);
+		blobStorage.writeFile(fileName, header);
 		this.currFilePos = header.length;
 	}
 
@@ -118,7 +130,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 		// TODO .. should aquire file lock..
 		val headerLen = FILE_HEADER.getBytes().length;
 		this.currFilePos = headerLen;
-		val currFileLen = blobStorage.fileLen(currFileName);
+		val currFileLen = blobStorage.fileLen(fileName);
 		doReloadFileRange(headerLen, currFileLen);
 	}
 	
@@ -132,7 +144,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	public OverrideNodeData getOverride(NodeNamesPath path) {
 		val pathElts = path.pathElements;
 		val pathEltCount = pathElts.length;
-		PartialNodeEntry currEntry = rootEntry;
+		OverrideNodeEntry currEntry = rootEntry;
 		// implicit.. NodeName currName = null;
 		for(int i = 0; i < pathEltCount; i++) {
 			if (currEntry.child == null) {
@@ -186,7 +198,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 		val dataBuffer = new ByteArrayOutputStream(4096);
 
 		// update in-memory: resolve (mkdirs) parent node + update/add PartialNodeEntry
-		PartialNodeEntry entry = resolveMkEntry(path, true);
+		OverrideNodeEntry entry = resolveMkEntry(path, true);
 
 		long dataFilePos;
 		int dataLen;
@@ -197,7 +209,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 				AttrDataEncoderHelper.writeIncrString(out, pathSlash, currPathSlash);
 				this.currPathSlash = pathSlash;
 
-				out.write(' '); // char for NodeOverrideStatus.UPDATED
+				out.write(ENTRY_NODE_UPDATE);
 				
 				out.flush();
 				val bufferLenBeforeData = dataBuffer.size();
@@ -219,7 +231,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 			
 			// do write append
 			byte[] filePart = dataBuffer.toByteArray();
-			this.blobStorage.writeAppendToFile(currFileName, filePart);
+			this.blobStorage.writeAppendToFile(fileName, filePart);
 			this.currFilePos += filePart.length;
 			
 			synchronized(entry) { // useless redundant lock?
@@ -230,17 +242,15 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	}
 	
 	@Override
-	public void remove(NodeNamesPath path) {
+	public void put_transientFieldsChanged(NodeNamesPath path, NodeData data) {
 		String pathSlash = path.toPathSlash();
 		val dataBuffer = new ByteArrayOutputStream(4096);
 
 		// update in-memory: resolve (mkdirs) parent node + update/add PartialNodeEntry
-		PartialNodeEntry entry = resolveMkEntry_Deleted(path);
-		if (entry == null) {
-			return;
-		}
-		
-		Map<NodeName,PartialNodeEntry> recursiveDisposeChildMap = null;
+		OverrideNodeEntry entry = resolveMkEntry(path, true);
+
+		long dataFilePos;
+		int dataLen;
 		synchronized(writeLock) {
 			// compute byte data payload to be appended
 			try(val out = new DataOutputStream(dataBuffer)) {
@@ -248,7 +258,59 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 				AttrDataEncoderHelper.writeIncrString(out, pathSlash, currPathSlash);
 				this.currPathSlash = pathSlash;
 
-				out.write('-'); // char for NodeOverrideStatus.DELETED
+				out.write(ENTRY_NODE_INTERNAL_FIELDS_CHANGED);
+				
+				out.flush();
+				val bufferLenBeforeData = dataBuffer.size();
+				dataFilePos = this.currFilePos + bufferLenBeforeData;
+				// take current filePos
+				// dataFilePos = bufferLenBefore;
+
+				// TOADD write previous filePos
+				
+				attrDataEncoderHelper.writeNodeData_internalFields(out, data.toInternalFields());
+				
+				out.flush();
+				val bufferLenAfterData = dataBuffer.size();
+				dataLen = bufferLenAfterData - bufferLenBeforeData;
+			} catch (IOException ex) {
+				throw new RuntimeException("Failed to encode", ex); // should not occur.. encode only!
+			}
+			
+			// do write append
+			byte[] filePart = dataBuffer.toByteArray();
+			this.blobStorage.writeAppendToFile(fileName, filePart);
+			this.currFilePos += filePart.length;
+			
+			synchronized(entry) { // useless redundant lock?
+				// update in-memory: mark as 'UPDATED'
+				entry.setOverrideData(OverrideNodeStatus.UPDATED, dataFilePos, dataLen, data);
+			}
+		} // synchronized writeLock
+	}
+
+
+	
+	@Override
+	public void remove(NodeNamesPath path) {
+		String pathSlash = path.toPathSlash();
+		val dataBuffer = new ByteArrayOutputStream(4096);
+
+		// update in-memory: resolve (mkdirs) parent node + update/add PartialNodeEntry
+		OverrideNodeEntry entry = resolveMkEntry_Deleted(path);
+		if (entry == null) {
+			return;
+		}
+		
+		Map<NodeName,OverrideNodeEntry> recursiveDisposeChildMap = null;
+		synchronized(writeLock) {
+			// compute byte data payload to be appended
+			try(val out = new DataOutputStream(dataBuffer)) {
+				// encode: {(incremental)path, overrideStatus, data}
+				AttrDataEncoderHelper.writeIncrString(out, pathSlash, currPathSlash);
+				this.currPathSlash = pathSlash;
+
+				out.write(ENTRY_NODE_REMOVED);
 				
 			} catch (IOException ex) {
 				throw new RuntimeException("Failed to encode", ex); // should not occur.. encode only!
@@ -256,7 +318,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 			
 			// do write append
 			byte[] filePart = dataBuffer.toByteArray();
-			this.blobStorage.writeAppendToFile(currFileName, filePart);
+			this.blobStorage.writeAppendToFile(fileName, filePart);
 			this.currFilePos += filePart.length;
 			
 			// update in-memory: mark as 'DELETED' + remove all sub-child if any
@@ -279,10 +341,10 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	// internal
 	// ------------------------------------------------------------------------
 	
-	protected PartialNodeEntry resolveMkEntry(NodeNamesPath path, boolean setIntermediateEntryUpdated) {
+	protected OverrideNodeEntry resolveMkEntry(NodeNamesPath path, boolean setIntermediateEntryUpdated) {
 		val pathElts = path.pathElements;
 		val pathEltCount = pathElts.length;
-		PartialNodeEntry currEntry = rootEntry;
+		OverrideNodeEntry currEntry = rootEntry;
 		for(int i = 0; i < pathEltCount; i++) {
 			val pathElt = pathElts[i];
 			synchronized(currEntry) {
@@ -297,11 +359,12 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 				}
 				val foundChild = currEntry.child.get(pathElt);
 				if (foundChild == null) {
-					val child = new PartialNodeEntry(
+					val child = new OverrideNodeEntry(
 							pathElt, // for debug only, else could be implicit..
 							OverrideNodeStatus.NOT_OVERRIDEN,
-							new HashMap<NodeName,PartialNodeEntry>(1),
-							0, 0, null // dataFilePos, dataLen, cachedData
+							new HashMap<NodeName,OverrideNodeEntry>(1),
+							0, 0, // dataFilePos, dataLen
+							null, null 
 							);
 					currEntry.child.put(pathElt, child);
 					currEntry = child; 
@@ -313,10 +376,10 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 		return currEntry;
 	}
 	
-	protected PartialNodeEntry resolveMkEntry_Deleted(NodeNamesPath path) {
+	protected OverrideNodeEntry resolveMkEntry_Deleted(NodeNamesPath path) {
 		val pathElts = path.pathElements;
 		val pathEltCount = pathElts.length;
-		PartialNodeEntry currEntry = rootEntry;
+		OverrideNodeEntry currEntry = rootEntry;
 		for(int i = 0; i < pathEltCount; i++) {
 			val pathElt = pathElts[i];
 			synchronized(currEntry) {
@@ -335,11 +398,12 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 				}
 				val foundChild = currEntry.child.get(pathElt);
 				if (foundChild == null) {
-					val child = new PartialNodeEntry(
+					val child = new OverrideNodeEntry(
 							pathElt, // for debug only, else could be implicit..
 							OverrideNodeStatus.NOT_OVERRIDEN,
-							new HashMap<NodeName,PartialNodeEntry>(1),
-							0, 0, null // dataFilePos, dataLen, cachedData
+							new HashMap<NodeName,OverrideNodeEntry>(1),
+							0, 0,  // dataFilePos, dataLen
+							null, null
 							);
 					currEntry.child.put(pathElt, child);
 					currEntry = child; 
@@ -354,7 +418,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	/** read and replay events (in same order) from appended-only Log file from BlobStorage */
 	protected void doReloadFileRange(final long fromFilePos, final long toFilePos) {
 		synchronized(writeLock) {
-			try (val fileIn = blobStorage.openRead(currFileName, fromFilePos)) {
+			try (val fileIn = blobStorage.openRead(fileName, fromFilePos)) {
 				val inCounter = new CountingInputStream(new BufferedInputStream(fileIn));
 				val in = new DataInputStream(inCounter);
 				
@@ -367,8 +431,8 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 					this.currPathSlash = pathText;
 					val path = nodeNameEncoder.encodePath(pathText); 
 							
-					val statusByte = in.read();
-					if (statusByte == ' ') { // for NodeOverrideStatus.UPDATED
+					val chgByte = in.read();
+					if (chgByte == ENTRY_NODE_UPDATE) {
 						// take current filePos
 						long dataFilePos = fromFilePos + inCounter.getCount();
 								
@@ -382,8 +446,14 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 						// TOADD read (redundant) dataLen for skippable ? 
 						
 						doReplayPut(path, dataFilePos, dataLen, data);
-					} else if (statusByte == '-') { // for NodeOverrideStatus.DELETED
+
+					} else if (chgByte == ENTRY_NODE_REMOVED) {
 						doReplayRemoved(path);
+
+					} else if (chgByte == ENTRY_NODE_INTERNAL_FIELDS_CHANGED) {
+						val internalFields = attrDataEncoderHelper.readNodeData_internalFields(in);
+						doReplayInternalFieldsChanged(path, internalFields);
+					
 					} else {
 						throw new IllegalStateException("should not occur");
 					}
@@ -403,7 +473,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	
 	protected void doReplayPut(NodeNamesPath path, long dataFilePos, int dataLen, NodeData cachedData) {
 		// update in-memory: resolve (mkdirs) parent node + update/add PartialNodeEntry
-		PartialNodeEntry entry = resolveMkEntry(path, true);
+		OverrideNodeEntry entry = resolveMkEntry(path, true);
 		
 		synchronized(entry) { // useless redundant lock?
 			// update in-memory: mark as 'UPDATED'
@@ -413,12 +483,12 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	
 	protected void doReplayRemoved(NodeNamesPath path) {
 		// update in-memory: resolve (mkdirs) parent node + update/add PartialNodeEntry
-		PartialNodeEntry entry = resolveMkEntry_Deleted(path);
+		OverrideNodeEntry entry = resolveMkEntry_Deleted(path);
 		if (entry == null) {
 			return;
 		}
 		
-		Map<NodeName,PartialNodeEntry> recursiveDisposeChildMap = null;
+		Map<NodeName,OverrideNodeEntry> recursiveDisposeChildMap = null;
 			
 		// update in-memory: mark as 'DELETED' + remove all sub-child if any
 		synchronized(entry) { // useless redundant lock?
@@ -435,7 +505,16 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 		}
 	}
 	
-	protected static void recursiveMarkDisposed(Map<NodeName,PartialNodeEntry> map) {
+	protected void doReplayInternalFieldsChanged(NodeNamesPath path, NodeDataInternalFields internalFields) {
+		// update in-memory: resolve (mkdirs) parent node + update/add PartialNodeEntry
+		OverrideNodeEntry entry = resolveMkEntry(path, true);
+		
+		synchronized(entry) { // useless redundant lock?
+			entry.setOverrideInternalFields(internalFields);
+		}
+	}
+	
+	protected static void recursiveMarkDisposed(Map<NodeName,OverrideNodeEntry> map) {
 		for (val e: map.values()) {
 			val childMap = e.child;
 			e.setMarkDisposed();
@@ -449,12 +528,12 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	// TODO may use async
 	// public CompletableFuture<NodeOverrideData> asyncGetOverride(NodeNamesPath path) {
 
-	protected NodeData doReadData(PartialNodeEntry entry, NodeName name) {
+	protected NodeData doReadData(OverrideNodeEntry entry, NodeName name) {
 		val dataFilePos = entry.dataFilePos;
 		val dataLen = entry.dataLen;
 		
 		// *** The Biggy: IO read (maybe remote) ***
-		byte[] dataBytes = blobStorage.readAt(currFileName, dataFilePos, dataLen);
+		byte[] dataBytes = blobStorage.readAt(fileName, dataFilePos, dataLen);
 
 		// decode byte[] -> NodeData
 		NodeData res;
@@ -467,5 +546,6 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 		entry.cachedData = res;
 		return res;
 	}
+
 
 }

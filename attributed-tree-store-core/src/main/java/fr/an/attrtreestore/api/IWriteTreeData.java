@@ -17,4 +17,14 @@ public interface IWriteTreeData extends IReadTreeData { // TOADD should not exte
 		put(path, data);
 	}
 
+//	public put_transientFieldsChanged(NodeNamesPath path, 
+//			long lastExternalRefreshTimeMillis,
+//			int treeDataRecomputationMask,
+//			int lruCount,
+//			int lruAmortizedCount,
+//			long lastTreeDataQueryTimeMillis
+//			) {
+//		throw new UnsupportedOperationException();		
+//	}
+
 }

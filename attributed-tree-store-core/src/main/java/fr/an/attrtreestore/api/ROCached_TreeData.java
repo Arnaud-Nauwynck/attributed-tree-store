@@ -5,6 +5,7 @@ public abstract class ROCached_TreeData extends TreeData implements IReadTreeDat
 	public enum IndexedBlobStorageInitMode {
 		RELOAD_ROOT_ONLY,
 		RELOAD_FULL,
+		INIT_EMPTY,		
 		NOT_INITIALIZED;		
 	}
 

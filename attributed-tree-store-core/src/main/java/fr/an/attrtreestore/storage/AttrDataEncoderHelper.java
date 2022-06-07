@@ -11,11 +11,11 @@ import com.google.common.collect.ImmutableSet;
 
 import fr.an.attrtreestore.api.NodeAttr;
 import fr.an.attrtreestore.api.NodeData;
+import fr.an.attrtreestore.api.NodeData.NodeDataInternalFields;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.attrinfo.AttrEvalStatus;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
 import lombok.val;
 
 @AllArgsConstructor
@@ -83,7 +83,28 @@ public class AttrDataEncoderHelper {
 				lruCount, lruAmortizedCount, lastTreeDataQueryTimeMillis
 				);
 	}
-	
+
+	public void writeNodeData_internalFields(DataOutput out, NodeDataInternalFields src
+			) throws IOException {
+		out.writeLong(src.getLastExternalRefreshTimeMillis());
+		out.writeInt(src.getTreeDataRecomputationMask());
+		out.writeInt(src.getLruCount());
+		out.writeInt(src.getLruAmortizedCount());
+		out.writeLong(src.getLastTreeDataQueryTimeMillis());
+	}
+
+	public NodeDataInternalFields readNodeData_internalFields(DataInput in) throws IOException {
+		val lastExternalRefreshTimeMillis = in.readLong();
+		val treeDataRecomputationMask = in.readInt();
+		val lruCount = in.readInt();
+		val lruAmortizedCount = in.readInt();
+		val lastTreeDataQueryTimeMillis = in.readLong();
+		return new NodeDataInternalFields(lastExternalRefreshTimeMillis, //
+				treeDataRecomputationMask, //
+				lruCount, lruAmortizedCount, lastTreeDataQueryTimeMillis
+				);
+	}
+
 	
 	public void writeAttrDatas(DataOutput out, NodeAttr[] attrs) throws IOException {
 		int attrCount = attrs.length;
