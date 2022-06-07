@@ -6,7 +6,6 @@ import com.google.common.collect.ImmutableSet;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.val;
 
@@ -17,11 +16,11 @@ import lombok.val;
  */
 @Getter
 @AllArgsConstructor
-@RequiredArgsConstructor
 @Builder
 public class NodeData {
 	
-	public final NodeName name;
+	/** can not be changed once constructed, except for internalizing ref with equivalent value */
+	public /*final*/ NodeName name;
 
 	/** use-defined type... example: dir:1 / file:2  .. */
 	public static final int TYPE_DIR = 1;
@@ -30,7 +29,8 @@ public class NodeData {
 
 	public final int mask;
 
-	public final ImmutableSet<NodeName> childNames; 
+	/** can not be changed once constructed, except for internalizing ref with equivalent value */
+	public /*final*/ ImmutableSet<NodeName> childNames; 
 
 	public int childCount() {
 		return (childNames != null)? childNames.size() : 0;
@@ -67,7 +67,7 @@ public class NodeData {
 	/** internal mask for update recomputation propagations 
 	 * (can/)might be modified without persisting .. transient
 	 */
-	@Getter @Setter
+	@Getter
 	private transient int treeDataRecomputationMask;
 
 	
@@ -91,6 +91,42 @@ public class NodeData {
 	private transient long lastTreeDataQueryTimeMillis;
 
 	// ------------------------------------------------------------------------
+
+	public NodeData(NodeName name, int type, int mask, 
+			ImmutableSet<NodeName> childNames, ImmutableMap<String, NodeAttr> attrs, //  
+			long externalCreationTime, long externalLastModifiedTime, long externalLength, // 
+			long lastTreeDataUpdateTimeMillis,
+			int lastTreeDataUpdateCount) {
+		this.name = name;
+		this.type = type;
+		this.mask = mask;
+		this.childNames = childNames;
+		this.attrs = attrs;
+		this.externalCreationTime = externalCreationTime;
+		this.externalLastModifiedTime = externalLastModifiedTime;
+		this.externalLength = externalLength;
+		this.lastTreeDataUpdateTimeMillis = lastTreeDataUpdateTimeMillis;
+		this.lastTreeDataUpdateCount = lastTreeDataUpdateCount;
+	}
+
+	// ------------------------------------------------------------------------
+	
+	public void _setNameInternalizedRef(NodeName ref) {
+		if (name == ref) {
+			return; // already internalized
+		}
+		if (! name.equals(ref)) {
+			this.name = ref;
+		}
+	}
+
+	public void _setChildNames_InternalizedRefs(ImmutableSet<NodeName> childNameRefs) {
+		// assume same..
+		if (! childNameRefs.equals(childNames)) {
+			throw new IllegalArgumentException();
+		}
+		this.childNames = childNameRefs;
+	}
 
 	public void setTreeDataRecomputationMask(int treeDataRecomputationMask) {
 		this.treeDataRecomputationMask = treeDataRecomputationMask;
