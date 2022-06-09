@@ -216,8 +216,14 @@ public class PersistedTreeData extends TreeData implements IWriteTreeData, IInMe
 			newWalOverrideTree.initCreateEmpty();
 			writeManifest(manifest);
 	
+			newWalOverrideTree.startWrite();
+			
 			// atomic add roll wal
 			val prevWalOverrideTrees = underlyingOverrideTree.rollAddWal(newWalOverrideTree);
+			
+			val prevWal = (WALBlobStorage_OverrideTreeData) prevWalOverrideTrees[prevWalOverrideTrees.length-1];
+			prevWal.flushStopWrite();
+			
 			return new RollWALResult(newWalFilename, newWalOverrideTree, prevWalOverrideTrees);
 		}
 	}

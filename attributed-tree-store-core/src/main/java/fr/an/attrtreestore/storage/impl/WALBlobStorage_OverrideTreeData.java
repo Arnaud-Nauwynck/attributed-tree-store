@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -102,6 +103,8 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	// @GuardedBy("writeLock")
 	private long currFilePos = 0;
 	
+	private OutputStream currWriteStream;
+	
 	// ------------------------------------------------------------------------
 
 	public WALBlobStorage_OverrideTreeData(BlobStorage blobStorage, String fileName,
@@ -134,6 +137,32 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 		doReloadFileRange(headerLen, currFileLen);
 	}
 	
+	public void startWrite() {
+		// stream will be opened on first use
+	}
+
+	public void flushStopWrite() {
+		synchronized(writeLock) {
+			if (currWriteStream != null) {
+				try {
+					currWriteStream.flush();
+				} catch (IOException ex) {
+					log.error("Failed flush WAL file (last entry might be corrupted?) !!", ex);
+				}
+				// TOADD wait writer thread if any
+				
+				try {
+					currWriteStream.close();
+				} catch (IOException ex) {
+					log.error("Failed close WAL file (last entry might be corrupted?) !!", ex);
+				}
+				currWriteStream = null;
+			}
+		}
+	}
+
+
+
 	// implements PartialOverrideTreeData (read part)
 	// ------------------------------------------------------------------------
 	
@@ -231,8 +260,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 			
 			// do write append
 			byte[] filePart = dataBuffer.toByteArray();
-			this.blobStorage.writeAppendToFile(fileName, filePart);
-			this.currFilePos += filePart.length;
+			writeAppendToWal(filePart, 0, filePart.length);
 			
 			synchronized(entry) { // useless redundant lock?
 				// update in-memory: mark as 'UPDATED'
@@ -279,8 +307,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 			
 			// do write append
 			byte[] filePart = dataBuffer.toByteArray();
-			this.blobStorage.writeAppendToFile(fileName, filePart);
-			this.currFilePos += filePart.length;
+			writeAppendToWal(filePart, 0, filePart.length);
 			
 			synchronized(entry) { // useless redundant lock?
 				// update in-memory: mark as 'UPDATED'
@@ -318,8 +345,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 			
 			// do write append
 			byte[] filePart = dataBuffer.toByteArray();
-			this.blobStorage.writeAppendToFile(fileName, filePart);
-			this.currFilePos += filePart.length;
+			writeAppendToWal(filePart, 0, filePart.length);
 			
 			// update in-memory: mark as 'DELETED' + remove all sub-child if any
 			synchronized(entry) { // useless redundant lock?
@@ -453,14 +479,20 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 					} else if (chgByte == ENTRY_NODE_INTERNAL_FIELDS_CHANGED) {
 						val internalFields = attrDataEncoderHelper.readNodeData_internalFields(in);
 						doReplayInternalFieldsChanged(path, internalFields);
-					
+
+					} else if (chgByte == ENTRY_NODE_ATTR_CHANGED) {
+						// NOT IMPL YET..
+
 					} else {
 						throw new IllegalStateException("should not occur");
 					}
+					
+					// last successfully read
+					// if failing to read an event (may throw EOF) => currFilePos not updated with partial.. shoud re-seek to currFilePos, then retry read?  
+					this.currFilePos = fromFilePos + inCounter.getCount(); 
 				}
 
 				// TOADD check..
-				this.currFilePos = fromFilePos + inCounter.getCount(); 
 				if (toFilePos != this.currFilePos) {
 					log.error("should not occur? currFilePos " + currFilePos + " != " + toFilePos);
 				}
@@ -547,5 +579,29 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 		return res;
 	}
 
+	
+	protected void writeAppendToWal(byte[] data, int from, int len) {
+		// inneficient for local file: open+write+flush+close... 
+		// (but maybe equivalent for distributed blobStorage, like Azure Storage)
+		// ... this.blobStorage.writeAppendToFile(fileName, filePart);
+		if (this.currWriteStream == null) {
+			// open on demand
+			this.currWriteStream = blobStorage.openWrite(fileName, true);
+			// TOCHECK seek to last checkpoint flushed pos... 
+		}
+		val posBefore = this.currFilePos;
+		// notice .. writing may be done asynchronously, by adding message to a queue, and polling to write in a separate thread
+		try {
+			this.currWriteStream.write(data, from, len);
+		} catch (IOException ex) {
+			throw new RuntimeException("Failed to write wal " + fileName + " (prevPos:" + posBefore + ")?? ", ex);
+		}
+		try {
+			this.currWriteStream.flush();
+		} catch (IOException ex) {
+			throw new RuntimeException("Failed to flush wal " + fileName + " (prevPos:" + posBefore + ")?? ", ex);
+		}
+		this.currFilePos += len;
+	}
 
 }
