@@ -11,7 +11,7 @@ public abstract class ROCached_TreeData extends TreeData implements IReadTreeDat
 
 	protected abstract void init(IndexedBlobStorageInitMode initMode, long initPreloadSize);
 	
-	// @Deprecated.. 
+	// @Deprecated.. may return CachedNodeData { data, overrideMode=DELETED,UPDATED,NOT_IN_CACHE, cachedTime } 
 	// may also use async Api?
 	public abstract NodeData get(NodeNamesPath path);
 	
