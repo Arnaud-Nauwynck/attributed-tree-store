@@ -2,6 +2,7 @@ package fr.an.attrtreestore.api;
 
 import java.util.Arrays;
 
+import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions;
 import lombok.val;
 
 /**
@@ -72,6 +73,11 @@ public final class NodeNamesPath {
 	}
 
 	public NodeName lastName() {
+		return pathElements[pathElements.length-1];
+	}
+
+	public NodeName lastNameOrEmpty() {
+		if (pathElements.length == 0) return DefaultNodeNameEncoderOptions.EMPTY_NAME;
 		return pathElements[pathElements.length-1];
 	}
 

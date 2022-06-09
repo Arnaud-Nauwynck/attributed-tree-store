@@ -23,8 +23,10 @@ import fr.an.attrtreestore.api.NodeAttr;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.RefreshableCached_TreeData;
+import fr.an.attrtreestore.api.PrefetchOtherNodeDataCallback;
+import fr.an.attrtreestore.api.RefreshableCached_DelegatingTreeData;
 import fr.an.attrtreestore.api.TreeData;
+import fr.an.attrtreestore.api.override.OverrideNodeStatus;
 import fr.an.attrtreestore.util.DefaultNamedTreadFactory;
 import lombok.Getter;
 import lombok.Setter;
@@ -32,11 +34,12 @@ import lombok.val;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 
+ * delegating TreeData get(path) to underlyingTree, and caching results.
+ * when discovering changes in parent->child, not present in cache, support for prefetching/resolving change
  */
 @Slf4j
-public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWriteTreeData> 
-	extends RefreshableCached_TreeData<TCacheStorageTreeData> {
+public class DefaultRefreshableCached_DelegatingTreeData<TCacheStorageTreeData extends TreeData & IWriteTreeData> 
+	extends RefreshableCached_DelegatingTreeData<TCacheStorageTreeData> {
 
 	protected boolean ownedBackgroundRefreshExecutorService;
 	private final ThreadFactory backgroundRefreshThreadFactory;
@@ -84,14 +87,22 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 	private int pendingResolveChangeTaskSubmittedCount; // count +1 and -1 at each submit / dequeued
 	@Getter @Setter
 	private int maxSubmittingResolveChangeTaskCount = 50;
-	
+
+	private final PrefetchOtherNodeDataCallback prefetchOtherNodeDataCallback = new PrefetchOtherNodeDataCallback() {
+		@Override
+		public void onPrefetchOtherNodeData(NodeNamesPath path, NodeData data, boolean isIncomplete) {
+			safeOnPrefetchOtherNodeData(path, data, isIncomplete);
+		}
+	};
+
 	// ------------------------------------------------------------------------
 
-	public DefaultCached_TreeData(
+	public DefaultRefreshableCached_DelegatingTreeData(
 			String displayName,
 			String displayBaseUrl,
-			TreeData underlyingTree, 
-			TCacheStorageTreeData cachedTree) {
+			TreeData underlyingTree, // may implements IPrefetchOtherReadTreeData 
+			TCacheStorageTreeData cachedTree // may implements IInMemCacheReadTreeData
+			) {
 		super(displayName, displayBaseUrl, underlyingTree, cachedTree);
 		
 		this.backgroundRefreshThreadFactory = new DefaultNamedTreadFactory("Background-Refresh-", " " + displayName, true);
@@ -130,7 +141,7 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 		
 		if (cachedData != null) {
 			// check cache expiration
-			val cacheSinceMillis = cachedData.getLastExternalRefreshTimeMillis();
+			val cacheSinceMillis = now - cachedData.getLastExternalRefreshTimeMillis();
 			if (cacheSinceMillis < cacheExpirationMillis  // fresh cached data
 					|| endGetCacheTime > useCacheIfResponseExceedTimeMillis // not freshed enough, but acceted for response time 
 					) {
@@ -151,7 +162,11 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 				incrCacheGetHitButExpired(cachedGetMillis); 
 				NodeData newData;
 				try {
-					newData = underlyingTree.get(path);
+					if (underlyingTree_supportsPrefetchOther != null) {
+						newData = underlyingTree_supportsPrefetchOther.get(path, prefetchOtherNodeDataCallback);
+					} else {
+						newData = underlyingTree.get(path);
+					}
 					
 				} catch(RuntimeException ex) {
 					// failed to refresh from underlying, but still have an old cached data... 
@@ -199,8 +214,13 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 			
 			// not-exist or not-in-cache? ... may save 'NotExistData' marker in cache?
 			// no marker yet... when not-exist => will always cause cache miss
-			
-			val newData = underlyingTree.get(path);
+
+			NodeData newData;
+			if (underlyingTree_supportsPrefetchOther != null) {
+				newData = underlyingTree_supportsPrefetchOther.get(path, prefetchOtherNodeDataCallback);
+			} else {
+				newData = underlyingTree.get(path);
+			}
 			
 			val endGetUnderlyingTime = System.currentTimeMillis();
 			int underlyingGetMillis = (int) (endGetUnderlyingTime - endGetCacheTime);
@@ -231,7 +251,7 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 		}
 	}
 
-
+	// TOCHECK.. maybe useless?
 	protected NodeData copyWithLastExternalRefreshTimeMillis(NodeData src, long timeMillis) {
 		return new NodeData(src.name, src.type, src.mask, src.childNames, src.attrs, //
 				src.externalCreationTime, src.externalLastModifiedTime, src.externalLength, //
@@ -274,7 +294,13 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 			NodeNamesPath ancestorPath = path.toParent();
 			NodeData ancestorData = null;
 			for(; ancestorPathLevel > 0; ancestorPathLevel--, ancestorPath=ancestorPath.toParent()) {
+				
+				// do not pass prefetchOtherCallback here (child of deleted parent?..)
+				// if (underlyingTree_supportsPrefetchOther != null) {
+				//	underlyingTree_supportsPrefetchOther.get(ancestorPath, prefetchOtherNodeDataCallback);
+				// } else {
 				ancestorData = underlyingTree.get(ancestorPath);
+				// }
 				
 				if (ancestorData == null) {
 					doCacheRemove_clearPendingTaskIfAny(ancestorPath);
@@ -362,6 +388,55 @@ public class DefaultCached_TreeData<TCacheStorageTreeData extends TreeData & IWr
 		getCacheWaitMax(path, cacheExpirationMillis, useCacheIfResponseExceedTimeMillis);
 	}
 
+	// ------------------------------------------------------------------------
+
+	protected void safeOnPrefetchOtherNodeData(NodeNamesPath path, NodeData data, boolean isIncomplete) {
+		try {
+			doOnPrefetchOtherNodeData(path, data, isIncomplete);
+		} catch(Exception ex) {
+			log.warn("Failed doOnPrefetchOtherNodeData .. ignore, no rethrow " + ex.getMessage());
+		}
+	}
+	protected void doOnPrefetchOtherNodeData(NodeNamesPath path, NodeData data, boolean isIncomplete) {
+		val refreshTime = data.getLastExternalRefreshTimeMillis(); // TOCHECK
+		val newData = copyWithLastExternalRefreshTimeMillis(data, refreshTime);
+		
+		// check if previously already in cache, and with same time
+		// if already in => do nothing
+		// else => put in cache... but may enqueue refresh if still incomplete
+		NodeData prevData;
+		if (cachedTree_supportsInMemCached != null) {
+			val prevDataIfInCache = cachedTree_supportsInMemCached.getIfInMemCache(path);
+			if (prevDataIfInCache.status == OverrideNodeStatus.NOT_OVERRIDEN) {
+				// not in-memory cached => cf next doCachePut_clearPendingTaskIfAny 
+				prevData = null;
+			} else {
+				prevData = prevDataIfInCache.data;
+			}
+		} else {
+			// may cause recurse!... get(parent) -> prefetchCallback(childPath, childData) -> get(childPath) !! 
+			prevData = cachedTree.get(path);
+		}
+
+		if (prevData == null) {
+			doCachePut_clearPendingTaskIfAny(path, newData);
+		} else {
+			// compare if same time
+			if (prevData.equalsIgnoreTransientFields(newData)) {
+				// do nothing
+			} else {
+				if (!isIncomplete) {
+					doCachePut_clearPendingTaskIfAny(path, newData);
+				} else {
+					// TOCHECK put in cache but still enqueue refresh later??
+					doCachePut_clearPendingTaskIfAny(path, newData);
+				}
+			}
+		}
+		
+	}
+	
+	
 	// Update cache and manage Background Change Resolver / Pending Refresh Tasks
 	// ------------------------------------------------------------------------
 

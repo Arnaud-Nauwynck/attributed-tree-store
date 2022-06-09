@@ -1,31 +1,36 @@
 package fr.an.attrtreestore.api;
 
-import java.util.concurrent.Future;
-
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import lombok.Setter;
 
-@RequiredArgsConstructor
-@Slf4j
-public abstract class RefreshableCached_TreeData<TCacheStorageTreeData extends TreeData & IWriteTreeData> 
+/**
+ * delegating TreeData get(path) to underlyingTree, and caching results.
+ */
+public abstract class Cached_DelegatingTreeData<TCacheStorageTreeData extends TreeData & IWriteTreeData> 
 	extends TreeData implements IReadTreeData {
 
 	protected final String displayName;
 	protected final String displayBaseUrl;
 	
+	/** underlying tree (mostly converter from NodeFsData to NodeData?)
+	 * may supports IPrefetchOtherReadTreeData
+	 * => so preferrably use 'NodeData get(NodeNamesPath path, PrefetchOtherNodeDataCallback optCallback)'
+	 * rather than 'NodeData get(NodeNamesPath path)'
+	 */
 	protected final TreeData underlyingTree;
+	protected final IPrefetchOtherReadTreeData underlyingTree_supportsPrefetchOther; 
 	
 	protected final TCacheStorageTreeData cachedTree;
-
+	protected final IInMemCacheReadTreeData cachedTree_supportsInMemCached; // = null or (ICacheReadTreeData)cachedTree
+	
 	protected boolean startedBackgroupRefreshesSupport;
 
 	// protected List<NodeNamesPath path> pendingBackgroupRefreshes;
 
+	@Getter @Setter
 	protected int defaultCacheExpirationMillis = 10 * 60 * 1000; // 10 minutes
+	@Getter @Setter
 	protected int defaultUseCacheIfResponseExceedMillis = 3000; // 3 seconds
-	
-	protected long thresholdForBackgroundRefreshMillis = defaultCacheExpirationMillis - 1000; 
 	
 	@Getter
 	private int cacheGetCount;
@@ -50,6 +55,19 @@ public abstract class RefreshableCached_TreeData<TCacheStorageTreeData extends T
 	private int underlyingGetFailedCount;
 	@Getter
 	private long underlyingGetFailedTotalMillis;
+
+	// ------------------------------------------------------------------------
+
+	public Cached_DelegatingTreeData(String displayName, String displayBaseUrl, //
+			TreeData underlyingTree, 
+			TCacheStorageTreeData cachedTree) {
+		this.displayName = displayName;
+		this.displayBaseUrl = displayBaseUrl;
+		this.underlyingTree = underlyingTree;
+		this.underlyingTree_supportsPrefetchOther = (underlyingTree instanceof IPrefetchOtherReadTreeData)? (IPrefetchOtherReadTreeData) underlyingTree : null; 
+		this.cachedTree = cachedTree;
+		this.cachedTree_supportsInMemCached = (cachedTree instanceof IInMemCacheReadTreeData)? (IInMemCacheReadTreeData) cachedTree : null; 
+	}
 	
 	// ------------------------------------------------------------------------
 
@@ -96,44 +114,5 @@ public abstract class RefreshableCached_TreeData<TCacheStorageTreeData extends T
 		underlyingGetFailedTotalMillis += millis;
 	}
 	
-	// ------------------------------------------------------------------------
 	
-	public boolean isStartedBackgroupRefreshSupport() {
-		return startedBackgroupRefreshesSupport;
-	}
-
-	public void startBackgroupRefreshSupport() {
-		if (!startedBackgroupRefreshesSupport) {
-			this.startedBackgroupRefreshesSupport = true;
-			try {
-				doStartBackgroupRefreshSupport();
-			} catch(RuntimeException ex) {
-				log.error("Failed doStartBackgroupRefreshes", ex);
-				this.startedBackgroupRefreshesSupport = false;
-			}
-		}
-	}
-
-	public void stopBackgroupRefreshSupport() {
-		if (startedBackgroupRefreshesSupport) {
-			this.startedBackgroupRefreshesSupport = false;
-			try {
-				doStopBackgroupRefreshSupport();
-			} catch(RuntimeException ex) {
-				log.error("Failed doStopBackgroupRefreshes", ex);
-				this.startedBackgroupRefreshesSupport = true;
-			}
-		}
-	}
-
-	protected abstract void doStartBackgroupRefreshSupport();
-	protected abstract void doStopBackgroupRefreshSupport();
-	
-
-	// CompetableFuture ?
-	public abstract Future<Void> submitBackgroupRefreshIfStarted(NodeNamesPath path);
-
-	public abstract void doRefresh(NodeNamesPath path);
-	
-
 }

@@ -5,12 +5,15 @@ import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import fr.an.attrtreestore.api.IInMemCacheReadTreeData;
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.ROCached_TreeData;
 import fr.an.attrtreestore.api.ROCached_TreeData.IndexedBlobStorageInitMode;
 import fr.an.attrtreestore.api.TreeData;
+import fr.an.attrtreestore.api.override.OverrideNodeData;
+import fr.an.attrtreestore.api.override.OverrideNodeStatus;
 import fr.an.attrtreestore.api.override.OverrideTreeData;
 import fr.an.attrtreestore.impl.traversal.DefaultTreeDataCopier;
 import fr.an.attrtreestore.spi.BlobStorage;
@@ -21,7 +24,7 @@ import lombok.val;
 /**
  * 
  */
-public class PersistedTreeData extends TreeData implements IWriteTreeData {
+public class PersistedTreeData extends TreeData implements IWriteTreeData, IInMemCacheReadTreeData {
 
 	private static final String FILENAME_manifest = "manifest.json";
 
@@ -155,6 +158,33 @@ public class PersistedTreeData extends TreeData implements IWriteTreeData {
 		return unionTree.get(path);
 	}
 	
+	@Override // implements IInMemCacheReadTreeData
+	public OverrideNodeData getIfInMemCache(NodeNamesPath path) {
+		OverrideNodeData overrideData;
+		if (underlyingOverrideTree instanceof IInMemCacheReadTreeData) {
+			overrideData = ((IInMemCacheReadTreeData) underlyingOverrideTree).getIfInMemCache(path);
+		} else {
+			overrideData = underlyingOverrideTree.getOverride(path);
+		}
+		if (overrideData != null) {
+			switch(overrideData.status) {
+			case DELETED: return OverrideNodeData.DELETED;
+			case UPDATED: return overrideData;
+			case NOT_OVERRIDEN: break; // cf next
+			}
+		}
+		if (underlyingReadIndexedTree instanceof IInMemCacheReadTreeData) {
+			return ((IInMemCacheReadTreeData) underlyingReadIndexedTree).getIfInMemCache(path);
+		} else {
+			// underlying tree does not support getIfInMemCache().. fallback
+			NodeData nodeData = underlyingReadIndexedTree.get(path);
+			if (nodeData == null) {
+				return OverrideNodeData.DELETED;
+			} else {
+				return new OverrideNodeData(OverrideNodeStatus.UPDATED, nodeData);
+			}
+		}
+	}
 
 	// implements IWriteableTreeData
 	// ------------------------------------------------------------------------

@@ -21,9 +21,11 @@ import lombok.val;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * In-memory implementation of TreeData, with Read + Write
+ * In-memory implementation of TreeData, with Read + Write operations : get(path) / put(path,data) / remove(path)
  * 
- * ... also contains fields for computing file position of entries, for writing to indexed file
+ * TODO TOCHANGE
+ * ... currently also contains fields for computing file position of entries, for writing to indexed file
+ * may wrap copy in temporary entries, for these extra fields
  */
 @Slf4j
 public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTreeData {
@@ -178,6 +180,7 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 		return currEntry;
 	}
 	
+	// TODO move to IndexedBlobStorage_TreeNodeDataEncoder + wrap in specific entry with 
 	// ------------------------------------------------------------------------
 
 	public void recursiveWriteFull(BlobStorage blobStorage, String fileName,			

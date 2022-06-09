@@ -15,6 +15,7 @@ import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.cachedfsview.NodeFsDataProvider;
+import fr.an.attrtreestore.cachedfsview.PrefetchOtherNodeFsDataCallback;
 import fr.an.attrtreestore.util.fsdata.NodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.DirNodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.FileNodeFsData;
@@ -41,7 +42,7 @@ public class JavaNIONodeFsDataProvider extends NodeFsDataProvider {
 	// ------------------------------------------------------------------------
 
 	@Override
-	public NodeFsData queryNodeFsData(NodeNamesPath subpath) {
+	public NodeFsData queryNodeFsData(NodeNamesPath subpath, PrefetchOtherNodeFsDataCallback optCallback) {
 		String[] subpathTexts = subpath.toTexts();
 		// Paths.get(baseDirPath, subpathTexts);
 		Path nioPath = FileSystems.getDefault().getPath(baseDirPathText, subpathTexts);

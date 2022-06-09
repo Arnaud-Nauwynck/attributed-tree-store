@@ -5,6 +5,7 @@ import java.util.List;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.override.OverrideNodeData;
+import fr.an.attrtreestore.api.override.OverrideNodeStatus;
 import fr.an.attrtreestore.api.override.OverrideTreeData;
 import lombok.Getter;
 import lombok.val;
@@ -57,7 +58,7 @@ public class Compound_OverrideTreeData extends OverrideTreeData {
 	public void remove(NodeNamesPath path) {
 		currWriteLast.remove(path);
 	}
-
+	
 	// ------------------------------------------------------------------------
 	
 	public synchronized OverrideTreeData[] rollAddWal(OverrideTreeData newWalOverrideTree) {

@@ -47,7 +47,7 @@ public class PersistedCachedFsViewTreeDataTest {
 		String displayBaseUrl = "tree1";
 		
 		JavaNIONodeFsDataProvider nodeFsDataProvider = new JavaNIONodeFsDataProvider(nodeNameEncoder, scannedBaseDir);
-		NodeFsAdapterTreeData underlyingFsAdapterTree = new NodeFsAdapterTreeData(nodeFsDataProvider);
+		NodeFsAdapterOnDemandTreeData underlyingFsAdapterTree = new NodeFsAdapterOnDemandTreeData(nodeFsDataProvider);
 		val sut = new PersistedCachedFsViewTreeData(displayName, displayBaseUrl,
 				underlyingFsAdapterTree,
 				blobStorage, testDir, // storage for persisted cached

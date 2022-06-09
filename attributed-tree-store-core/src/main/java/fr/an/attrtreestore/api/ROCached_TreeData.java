@@ -11,7 +11,8 @@ public abstract class ROCached_TreeData extends TreeData implements IReadTreeDat
 
 	protected abstract void init(IndexedBlobStorageInitMode initMode, long initPreloadSize);
 	
-	// @Deprecated.. shoud use async Api?
+	// @Deprecated.. 
+	// may also use async Api?
 	public abstract NodeData get(NodeNamesPath path);
 	
 	// public abstract CompletableFuture<NodeData> asyncGet(NodeNamesPath path);

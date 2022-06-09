@@ -5,9 +5,15 @@ import fr.an.attrtreestore.util.fsdata.NodeFsData;
 
 public abstract class NodeFsDataProvider {
 
-	/** query underlying FileSystem, using configured baseUrl + appending subpath */
-	public abstract NodeFsData queryNodeFsData(NodeNamesPath subpath);
+//	public NodeFsData queryNodeFsData(NodeNamesPath subpath) {
+//		return queryNodeFsData(subpath, null);
+//	}
+
+	// TOADD public abstract CompletableFuture<NodeFsData> asyncQueryNodeFsData(NodeNamesPath subpath, PrefetchOtherNodeFsDataCallback optCallback);
 	
-	// TOADD public abstract CompletableFuture<NodeFsData> asyncQueryNodeFsData(NodeNamesPath subpath);
-	
+	/** query underlying FileSystem, using configured baseUrl + appending subpath 
+	 * optionnally use <code>optCallback</code> to also build directo 
+	 */
+	public abstract NodeFsData queryNodeFsData(NodeNamesPath path, PrefetchOtherNodeFsDataCallback optCallback);
+
 }
