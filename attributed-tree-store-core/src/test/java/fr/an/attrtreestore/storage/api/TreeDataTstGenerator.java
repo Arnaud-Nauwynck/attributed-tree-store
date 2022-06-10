@@ -16,7 +16,7 @@ public class TreeDataTstGenerator {
 
 	public NodeData createDirData(NodeName name, ImmutableSet<NodeName> childNames) {
 		return new NodeData(name,
-			1, // type;
+			NodeData.TYPE_DIR, // type;
 			0, // mask;
 			childNames, 
 			ImmutableMap.<String,NodeAttr>of(), // attrs

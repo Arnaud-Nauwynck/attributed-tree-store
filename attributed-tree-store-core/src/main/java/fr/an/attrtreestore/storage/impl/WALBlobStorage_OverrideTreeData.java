@@ -20,6 +20,7 @@ import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.api.override.OverrideNodeData;
 import fr.an.attrtreestore.api.override.OverrideNodeStatus;
 import fr.an.attrtreestore.api.override.OverrideTreeData;
+import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions;
 import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import lombok.AllArgsConstructor;
@@ -189,13 +190,10 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 			currEntry = foundChild;
 			// implicit.. currName = pathElt;
 		}
-		val currName = pathElts[pathEltCount-1];
 		if (currEntry == null) { // should not occur
 			return OverrideNodeData.NOT_OVERRIDEN; 
 		}
-		if (currEntry.overrideStatus == OverrideNodeStatus.DELETED) {
-			return OverrideNodeData.DELETED;
-		} else if (currEntry.overrideStatus == OverrideNodeStatus.UPDATED) {
+		if (currEntry.overrideStatus == OverrideNodeStatus.UPDATED) {
 			val cachedData = currEntry.cachedData;
 			if (cachedData != null) {
 				return new OverrideNodeData(OverrideNodeStatus.UPDATED, cachedData);
@@ -203,14 +201,21 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 				// need reload data from cache, using filePos
 				// TOCHANGE.. should return a Future<NodeOverrideData> ??
 				// current impl: blocking read
+			    val currName = path.lastNameOrEmpty();
 
 				// **** The Biggy: IO Read (maybe remote) ***
 				val reloadedData = doReadData(currEntry, currName);
 
 				return new OverrideNodeData(OverrideNodeStatus.UPDATED, reloadedData);
 			}
-		} else {
-			throw new IllegalStateException(); // should not occur
+		} else if (currEntry.overrideStatus == OverrideNodeStatus.DELETED) {
+		    return OverrideNodeData.DELETED;
+		} else { // if (OverrideNodeData.NOT_OVERRIDEN)
+		    if (currEntry == rootEntry) {     
+		        return null; // ?
+    		} else {
+    			throw new IllegalStateException(); // should not occur
+    		}
 		}
 	}
 	
@@ -453,16 +458,17 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 				val toCount = toFilePos - fromFilePos;
 				while(inCounter.getCount() < toCount) {
 					
-					val pathText = AttrDataEncoderHelper.readIncrString(in, currPathSlash);
+				    val pathText = AttrDataEncoderHelper.readIncrString(in, currPathSlash);
 					this.currPathSlash = pathText;
-					val path = nodeNameEncoder.encodePath(pathText); 
-							
+					val path = (currPathSlash.isEmpty())? NodeNamesPath.ROOT  
+					        : nodeNameEncoder.encodePath(pathText);
+							 												
 					val chgByte = in.read();
 					if (chgByte == ENTRY_NODE_UPDATE) {
 						// take current filePos
 						long dataFilePos = fromFilePos + inCounter.getCount();
 								
-						val name = path.pathElements[path.pathElements.length-1];
+						val name = path.lastNameOrEmpty();
 						val data = attrDataEncoderHelper.readNodeData_noName(in, name);
 
 						// current filePos

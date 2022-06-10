@@ -20,10 +20,12 @@ import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import lombok.AllArgsConstructor;
 import lombok.val;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 
  */
+@Slf4j
 public class PersistedTreeData extends TreeData implements IWriteTreeData, IInMemCacheReadTreeData {
 
 	private static final String FILENAME_manifest = "manifest.json";
@@ -104,8 +106,9 @@ public class PersistedTreeData extends TreeData implements IWriteTreeData, IInMe
 		CachedROIndexedBlobStorage_TreeNodeData underlyingReadIndexedTree;
 		List<WALBlobStorage_OverrideTreeData> sequenceOverrideTrees = new ArrayList<>();
 		
-		if (blobStorage.exists(baseDirname)) {
-			blobStorage.mkdirs(baseDirname);
+		if (! blobStorage.exists(baseDirname)) {
+		    log.info("dir '" + baseDirname + "' not exists for PersistedTreeData => mkdirs");
+		    blobStorage.mkdirs(baseDirname);
 		}
 		this.manifestFilename = baseDirname + "/" + FILENAME_manifest;
 		PersistedTreeDataManifest manifest;
@@ -133,10 +136,15 @@ public class PersistedTreeData extends TreeData implements IWriteTreeData, IInMe
 			String indexFilename = manifest.newIndexFile();
 			manifest.indexFilename = indexFilename;
 			String indexFile = baseDirname + "/" + indexFilename;
+			String walFilename = manifest.addWalFile();
+
+			log.info("init empty persistedTree dir: '" + baseDirname + "' (manifest:" + manifestFilename + ", index:" + indexFilename + ", wal: " + walFilename + ")");
+			
+			new InMem_TreeData().recursiveWriteFull(blobStorage, indexFile, indexedTreeNodeDataEncoder);
+			
 			underlyingReadIndexedTree = new CachedROIndexedBlobStorage_TreeNodeData(blobStorage, indexFile,
 					indexedTreeNodeDataEncoder, IndexedBlobStorageInitMode.INIT_EMPTY, 0);
 			
-			String walFilename = manifest.addWalFile();
 			String walFile = baseDirname + "/" + walFilename;
 			val underlyingOverrideTree = new WALBlobStorage_OverrideTreeData(blobStorage, walFile, attrDataEncoderHelper);
 			underlyingOverrideTree.initCreateEmpty();

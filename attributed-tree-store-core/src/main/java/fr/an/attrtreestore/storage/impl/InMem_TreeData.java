@@ -1,5 +1,8 @@
 package fr.an.attrtreestore.storage.impl;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -9,10 +12,12 @@ import java.util.TreeMap;
 
 import fr.an.attrtreestore.api.IReadTreeData;
 import fr.an.attrtreestore.api.IWriteTreeData;
+import fr.an.attrtreestore.api.NodeAttr;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.TreeData;
+import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions;
 import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.util.NoFlushCountingOutputStream;
 import fr.an.attrtreestore.util.NullCountingOutputStream;
@@ -30,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTreeData {
 
-	private final FullInMemNodeEntry rootNode = new FullInMemNodeEntry(null, null, 0, 0L, 0L, new TreeMap<>());
+	private final FullInMemNodeEntry rootNode = new FullInMemNodeEntry(null, createEmptyRootData(), 0, 0L, 0L, new TreeMap<>());
 
 	// @AllArgsConstructor
 	private static class FullInMemNodeEntry {
@@ -79,6 +84,21 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 	public InMem_TreeData() {
 	}
 
+	private static NodeData createEmptyRootData() {
+        return new NodeData(DefaultNodeNameEncoderOptions.EMPTY_NAME,
+                NodeData.TYPE_DIR, // type;
+                0, // mask;
+                ImmutableSet.<NodeName>of(), // childNames, 
+                ImmutableMap.<String,NodeAttr>of(), // attrs
+                0L, // externalCreationTime, 
+                0L, // externalLastModifiedTime,
+                0L, // externalLength;
+                0L, // lastExternalRefreshTimeMillis
+                0L, // lastTreeDataUpdateTimeMillis
+                0, // lastTreeDataUpdateCount
+                0, 0, 0, 0L); // treeDataRecomputationMask, lruCount, lruAmortizedCount, lastQueryTimestamp
+	}
+	
 	// ------------------------------------------------------------------------
 
 	@Override

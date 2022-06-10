@@ -108,7 +108,11 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData i
 		this.blobStorage = blobStorage;
 		this.fileName = fileName;
 		this.indexedTreeNodeDataEncoder = indexedTreeNodeDataEncoder;
-		
+
+        if (! blobStorage.exists(fileName)) {
+            // TODO throw
+            log.warn("read-only file not found '" + fileName + "' .. will not load data!");
+        }
 		this.fileLen = blobStorage.fileLen(fileName);
 		
 		// init the root node, dataFilePos fixed known in file 
@@ -123,7 +127,7 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData i
 		// caller MUST call init next cf next
 		// TOADD preload, maybe few others recursively..
 		if (initMode != IndexedBlobStorageInitMode.NOT_INITIALIZED) {
-			init(initMode, initPrefetchSize);
+		    init(initMode, initPrefetchSize);
 		}
 	}
 
@@ -152,10 +156,20 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData i
 	protected void initReloadRoot(long initFetchSize) {
 		// initialize rootNode content!! (data + corresponding sortedEntries)
 		val rootHandle = new NodeEntryHandle(this.rootNode.name, this.rootNode.dataFilePos);
-		val loadedRootNode = doLoadCachedNodeEntry(rootHandle, initFetchSize);
+		
+		NodeData rootData;
+		Object[] rootEntries;
+		if (blobStorage.exists(fileName)) {
+		    val loadedRootNode = doLoadCachedNodeEntry(rootHandle, initFetchSize);
+		    rootData = loadedRootNode.cachedData;
+		    rootEntries = loadedRootNode.sortedEntries;
+		} else {
+		    rootData = null; // ??
+		    rootEntries = new Object[0];
+		}
 		synchronized(this.rootNode) {
-			this.rootNode.cachedData = loadedRootNode.cachedData;
-			this.rootNode.sortedEntries = loadedRootNode.sortedEntries;
+			this.rootNode.cachedData = rootData;
+			this.rootNode.sortedEntries = rootEntries;
 		}
 	}
 	

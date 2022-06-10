@@ -126,7 +126,8 @@ public class FileBlobStorage extends BlobStorage {
 
 	@Override
 	public void writeAppendToFile(String filePath, byte[] appendData) {
-		log.info("write append to " + displayName + " file '" + filePath + "'");
+	    // too verbose..
+		// log.info("write append to " + displayName + " file '" + filePath + "'");
 		val file = toFile(filePath);
 		try (val out = new FileOutputStream(file, true)) {
 			out.write(appendData);
