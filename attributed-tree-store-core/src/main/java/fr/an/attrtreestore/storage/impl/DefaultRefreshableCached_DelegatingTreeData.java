@@ -262,6 +262,24 @@ public class DefaultRefreshableCached_DelegatingTreeData<TCacheStorageTreeData e
 				);
 	}
 
+   protected NodeData mergeIncompleteWithPrevData(NodeData src, NodeData prevData) {
+       boolean isModif = src.externalLastModifiedTime > prevData.externalLastModifiedTime;
+       long externalCreationTime = (isModif)? src.externalCreationTime : prevData.externalCreationTime;
+       long externalLastModifiedTime = (isModif)? src.externalLastModifiedTime : prevData.externalLastModifiedTime; // idem max
+       long externalLength = (isModif)? src.externalLength : prevData.externalLength;
+       int lruCount = prevData.getLruCount();
+       int lruAmortizedCount = prevData.getLruAmortizedCount();
+       long lastTreeDataQueryTimeMillis = prevData.getLastTreeDataQueryTimeMillis(); // ?
+       long lastExternalRefreshTimeMillis = Math.max(src.getLastExternalRefreshTimeMillis(), prevData.getLastExternalRefreshTimeMillis());
+       return new NodeData(src.name, src.type, src.mask, src.childNames, src.attrs, //
+               externalCreationTime, externalLastModifiedTime, externalLength, //
+               lastExternalRefreshTimeMillis, //
+               prevData.lastTreeDataUpdateTimeMillis, prevData.lastTreeDataUpdateCount, prevData.getTreeDataRecomputationMask(), // 
+               lruCount, lruAmortizedCount, //
+               lastTreeDataQueryTimeMillis);
+    }
+
+	   
 	protected void resyncCacheChildListOf(NodeNamesPath path, NodeData data, NodeData prevCacheData) {
 		LinkedHashSet<NodeName> remainToRemove = new LinkedHashSet<>(prevCacheData.childNames);
 		List<NodeName> toAdd = new ArrayList<>();
@@ -399,7 +417,7 @@ public class DefaultRefreshableCached_DelegatingTreeData<TCacheStorageTreeData e
 	}
 	protected void doOnPrefetchOtherNodeData(NodeNamesPath path, NodeData data, boolean isIncomplete) {
 		val refreshTime = data.getLastExternalRefreshTimeMillis(); // TOCHECK
-		val newData = copyWithLastExternalRefreshTimeMillis(data, refreshTime);
+		NodeData newData = copyWithLastExternalRefreshTimeMillis(data, refreshTime);
 		
 		// check if previously already in cache, and with same time
 		// if already in => do nothing
@@ -421,6 +439,10 @@ public class DefaultRefreshableCached_DelegatingTreeData<TCacheStorageTreeData e
 		if (prevData == null) {
 			doCachePut_clearPendingTaskIfAny(path, newData);
 		} else {
+		    if (isIncomplete) {
+		        // merge newData with existing prevData
+		        newData = mergeIncompleteWithPrevData(newData, prevData);
+		    }
 			// compare if same time
 			if (prevData.equalsIgnoreTransientFields(newData)) {
 				// do nothing

@@ -1,29 +1,43 @@
 package fr.an.attrtreestore.spi;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import lombok.val;
 
 public abstract class BlobStorage {
 
+    public abstract BlobStoreFileInfo pathInfo(String relativePath);
+
 	public abstract boolean exists(String filePath);
 
+	// TODO use fileInfo()
 	public abstract boolean isDirectory(String filePath);
-	
+
+	// TODO use fileInfo()
+	public abstract long fileLen(String filePath);
+	    
+	// TODO use fileInfo()
+	public abstract long lastModifiedTime(String filePath);
+
+
 	public abstract void mkdirs(String filePath);
+
+	public List<String> listChildNames(String filePath) {
+	    return list(filePath).stream().map(x -> x.childName()).collect(Collectors.toList());
+	}
+
+	public abstract List<BlobStoreFileInfo> list(String filePath);
 
 	public abstract void deleteFile(String filePath);
 
 	public abstract void renameFile(String filePath, String newFilePath);
-
-	public abstract long fileLen(String filePath);
-	
-	public abstract long lastModifiedTime(String filePath);
 
 
 	public abstract OutputStream openWrite(String filePath, boolean append);

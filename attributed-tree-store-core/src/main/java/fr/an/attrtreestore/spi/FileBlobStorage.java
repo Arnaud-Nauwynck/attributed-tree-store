@@ -7,6 +7,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import lombok.val;
 import lombok.extern.slf4j.Slf4j;
@@ -32,11 +35,42 @@ public class FileBlobStorage extends BlobStorage {
 	}
 	
 	@Override
+    public BlobStoreFileInfo pathInfo(String relativePath) {
+	    val file = toFile(relativePath);
+	    return toBlobStoreFileInfo(relativePath, file);
+	}
+
+    private BlobStoreFileInfo toBlobStoreFileInfo(String relativePath, File file) {
+        return new BlobStoreFileInfo(relativePath, file.isDirectory(), file.length(), file.lastModified());
+    }
+
+	@Override
 	public boolean exists(String filePath) {
 		val file = toFile(filePath);
 		return file.exists();
 	}
-	
+
+	@Override
+	public List<BlobStoreFileInfo> list(String relativePath) {
+        log.info("ls " + displayName + " '" + relativePath + "'");
+        val file = toFile(relativePath);
+        val tmpres = file.listFiles();
+        val res = new ArrayList<BlobStoreFileInfo>();
+        for(val e: tmpres) {
+            String childRelativePath = relativePath + "/" + e.getName();
+            res.add(toBlobStoreFileInfo(childRelativePath, e));
+        }
+        return res;
+	}
+
+	@Override
+    public List<String> listChildNames(String filePath) {
+        log.info("ls " + displayName + " '" + filePath + "'");
+        val file = toFile(filePath);
+        val tmpres = file.list();
+        return new ArrayList<>(Arrays.asList(tmpres));
+    }
+
 	@Override
 	public void mkdirs(String filePath) {
 		log.info("mkdirs " + displayName + " '" + filePath + "'");

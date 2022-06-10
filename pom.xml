@@ -24,11 +24,20 @@
 		<!-- deprecated? directly in attributed-tree-store-core -->
 		<module>attributed-tree-store-nio</module>
 		
-		<module>attributed-tree-store-hadoop3</module>
-		<!-- 
 		<module>attributed-tree-store-azure-datalakestorage</module>
-		-->
 	</modules>
+
+    <profiles>
+        <profile>
+            <id>hadoop3</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+				<module>attributed-tree-store-hadoop3</module>
+            </modules>
+        </profile>
+    </profiles>
 	
 	<dependencyManagement>
       <dependencies>
