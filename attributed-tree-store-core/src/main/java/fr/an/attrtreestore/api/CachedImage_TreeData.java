@@ -1,12 +1,16 @@
 package fr.an.attrtreestore.api;
 
+import fr.an.attrtreestore.util.LoggingCounter;
+import fr.an.attrtreestore.util.LoggingCounter.MsgPrefixLoggingCallback;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * delegating TreeData get(path) to underlyingTree, and caching results.
  */
-public abstract class Cached_DelegatingTreeData<TCacheStorageTreeData extends TreeData & IWriteTreeData> 
+@Slf4j
+public abstract class CachedImage_TreeData<TCacheStorageTreeData extends TreeData & IWriteTreeData> 
 	extends TreeData implements IReadTreeData {
 
 	protected final String displayName;
@@ -31,34 +35,26 @@ public abstract class Cached_DelegatingTreeData<TCacheStorageTreeData extends Tr
 	protected int defaultCacheExpirationMillis = 10 * 60 * 1000; // 10 minutes
 	@Getter @Setter
 	protected int defaultUseCacheIfResponseExceedMillis = 3000; // 3 seconds
-	
-	@Getter
-	private int cacheGetCount;
-	@Getter
-	private int cacheGetHitCount;
-	@Getter
-	private int cacheGetHitTotalMillis;
-	@Getter
-	private int cacheGetHitButExpiredCount;
-	@Getter
-	private int cacheGetHitButExpiredTotalMillis;
-	@Getter
-	private int cacheGetMissCount;
-	@Getter
-	private int cacheGetMissTotalMillis;
 
 	@Getter
-	private int underlyingGetCount;
+	private LoggingCounter cacheGetCount = new LoggingCounter("cache.get");
 	@Getter
-	private long underlyingGetTotalMillis;
+	private LoggingCounter cacheGetHitCount = new LoggingCounter("cache.get-hit");
 	@Getter
-	private int underlyingGetFailedCount;
+	private LoggingCounter cacheGetHitButExpiredCount = new LoggingCounter("cache.get-hit-but-expired");
 	@Getter
-	private long underlyingGetFailedTotalMillis;
+	private LoggingCounter cacheGetMissCount = new LoggingCounter("cache.get-miss");
+
+	@Getter
+	private LoggingCounter underlyingGetCount = new LoggingCounter("underlying.get");
+
+	// failed calls are counted twice in underlyingGetCount + underlyingGetFailedCount 
+	@Getter
+	private LoggingCounter underlyingGetFailedCount = new LoggingCounter("underlying.get-failed");
 
 	// ------------------------------------------------------------------------
 
-	public Cached_DelegatingTreeData(String displayName, String displayBaseUrl, //
+	public CachedImage_TreeData(String displayName, String displayBaseUrl, //
 			TreeData underlyingTree, 
 			TCacheStorageTreeData cachedTree) {
 		this.displayName = displayName;
@@ -85,34 +81,43 @@ public abstract class Cached_DelegatingTreeData<TCacheStorageTreeData extends Tr
 
 	// ------------------------------------------------------------------------
 	
-	protected void incrCacheGetHit(int millis) {
-		cacheGetCount++;
-		cacheGetHitCount++;
-		cacheGetHitTotalMillis += millis;
+	protected void incrCacheGetHit(int millis, MsgPrefixLoggingCallback logCallback) {
+		cacheGetCount.incr(millis, logCallback);
 	}
 
-	protected void incrCacheGetHitButExpired(int millis) {
-		cacheGetCount++;
-		cacheGetHitButExpiredCount++;
-		cacheGetHitButExpiredTotalMillis += millis;
+	protected void incrCacheGetHitButExpired(int millis, MsgPrefixLoggingCallback logCallback) {
+		cacheGetCount.incr(millis, logCallback);
 	}
 
-	protected void incrCacheGetMiss(int millis) {
-		cacheGetCount++;
-		cacheGetMissCount++;
-		cacheGetMissTotalMillis += millis;
+	protected void incrCacheGetMiss(int millis, MsgPrefixLoggingCallback logCallback) {
+		cacheGetCount.incr(millis, logCallback);
 	}
 
-	protected void incrUnderlyingTreeGet(int millis) {
-		underlyingGetCount++;
-		underlyingGetTotalMillis += millis;
+	protected void incrUnderlyingTreeGet(int millis, MsgPrefixLoggingCallback logCallback) {
+		underlyingGetCount.incr(millis, logCallback);
 	}
 
-	protected void incrUnderlyingTreeGetFailed(int millis, Exception ex) {
-		underlyingGetCount++; // also increment count
-		underlyingGetFailedCount++;
-		underlyingGetFailedTotalMillis += millis;
+	protected void incrUnderlyingTreeGetFailed(int millis, MsgPrefixLoggingCallback logCallback) {
+		underlyingGetCount.incr(millis, logCallback); // also increment count
+		underlyingGetFailedCount.incr(millis, logCallback);
 	}
 	
-	
+	public void setLoggingCountersFreq(int freq) {
+		cacheGetCount.setLogFreq(freq);
+		cacheGetHitCount.setLogFreq(freq);
+		cacheGetHitButExpiredCount.setLogFreq(freq);
+		cacheGetMissCount.setLogFreq(freq);
+		underlyingGetCount.setLogFreq(freq);
+		underlyingGetFailedCount.setLogFreq(freq);
+	}
+
+	public void setLoggingCountersMaxDelayMillis(int millis) {
+		cacheGetCount.setLogMaxDelayMillis(millis);
+		cacheGetHitCount.setLogMaxDelayMillis(millis);
+		cacheGetHitButExpiredCount.setLogMaxDelayMillis(millis);
+		cacheGetMissCount.setLogMaxDelayMillis(millis);
+		underlyingGetCount.setLogMaxDelayMillis(millis);
+		underlyingGetFailedCount.setLogMaxDelayMillis(millis);
+	}
+
 }

@@ -4,7 +4,7 @@ import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
-import fr.an.attrtreestore.storage.impl.DefaultRefreshableCached_DelegatingTreeData;
+import fr.an.attrtreestore.storage.impl.DefaultSyncCachedImage_TreeData;
 import fr.an.attrtreestore.storage.impl.PersistedTreeData;
 import lombok.Getter;
 
@@ -21,7 +21,7 @@ public class PersistedCachedFsViewTreeData // extends RefreshableCached_TreeData
 	{
 
 	@Getter
-	private final DefaultRefreshableCached_DelegatingTreeData<PersistedTreeData> tree;
+	private final DefaultSyncCachedImage_TreeData<PersistedTreeData> tree;
 
 	private final PersistedTreeData cachePersistedTree;
 	
@@ -38,7 +38,7 @@ public class PersistedCachedFsViewTreeData // extends RefreshableCached_TreeData
 			) {
 		this.cachePersistedTree = new PersistedTreeData(blobStorage, baseDirname, attrDataEncoderHelper);
 		
-		this.tree = new DefaultRefreshableCached_DelegatingTreeData<PersistedTreeData>(
+		this.tree = new DefaultSyncCachedImage_TreeData<PersistedTreeData>(
 				displayName, displayBaseUrl,
 				underlyingFsAdapterTree,
 				cachePersistedTree);

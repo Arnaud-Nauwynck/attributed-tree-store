@@ -24,7 +24,7 @@ import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.PrefetchOtherNodeDataCallback;
-import fr.an.attrtreestore.api.RefreshableCached_DelegatingTreeData;
+import fr.an.attrtreestore.api.SyncCachedImage_TreeData;
 import fr.an.attrtreestore.api.TreeData;
 import fr.an.attrtreestore.api.override.OverrideNodeStatus;
 import fr.an.attrtreestore.util.DefaultNamedTreadFactory;
@@ -38,8 +38,8 @@ import lombok.extern.slf4j.Slf4j;
  * when discovering changes in parent->child, not present in cache, support for prefetching/resolving change
  */
 @Slf4j
-public class DefaultRefreshableCached_DelegatingTreeData<TCacheStorageTreeData extends TreeData & IWriteTreeData> 
-	extends RefreshableCached_DelegatingTreeData<TCacheStorageTreeData> {
+public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeData & IWriteTreeData> 
+	extends SyncCachedImage_TreeData<TCacheStorageTreeData> {
 
 	protected boolean ownedBackgroundRefreshExecutorService;
 	private final ThreadFactory backgroundRefreshThreadFactory;
@@ -97,7 +97,7 @@ public class DefaultRefreshableCached_DelegatingTreeData<TCacheStorageTreeData e
 
 	// ------------------------------------------------------------------------
 
-	public DefaultRefreshableCached_DelegatingTreeData(
+	public DefaultSyncCachedImage_TreeData(
 			String displayName,
 			String displayBaseUrl,
 			TreeData underlyingTree, // may implements IPrefetchOtherReadTreeData 
@@ -143,10 +143,10 @@ public class DefaultRefreshableCached_DelegatingTreeData<TCacheStorageTreeData e
 			// check cache expiration
 			val cacheSinceMillis = now - cachedData.getLastExternalRefreshTimeMillis();
 			if (cacheSinceMillis < cacheExpirationMillis  // fresh cached data
-					|| endGetCacheTime > useCacheIfResponseExceedTimeMillis // not freshed enough, but acceted for response time 
+					|| endGetCacheTime > useCacheIfResponseExceedTimeMillis // not freshed enough, but accepted for response time 
 					) {
 				// OK fast path..
-				incrCacheGetHit(cachedGetMillis); 
+				incrCacheGetHit(cachedGetMillis, prefix -> log.info(prefix + " " + path)); 
 				
 				cachedData.incrUsed(cachedGetMillis);
 				
@@ -159,7 +159,7 @@ public class DefaultRefreshableCached_DelegatingTreeData<TCacheStorageTreeData e
 				return cachedData;
 			} else { // cachedData != null but expired 
 				// got cached data, but considered expired!... need re-query from underlyingTree
-				incrCacheGetHitButExpired(cachedGetMillis); 
+				incrCacheGetHitButExpired(cachedGetMillis, prefix -> log.info(prefix + " " + path)); 
 				NodeData newData;
 				try {
 					if (underlyingTree_supportsPrefetchOther != null) {
@@ -173,13 +173,13 @@ public class DefaultRefreshableCached_DelegatingTreeData<TCacheStorageTreeData e
 					// may return it silently?!
 					val endGetUnderlyingTime = System.currentTimeMillis();
 					int underlyingGetMillis = (int) (endGetUnderlyingTime - endGetCacheTime);
-					incrUnderlyingTreeGetFailed(underlyingGetMillis, ex);
+					incrUnderlyingTreeGetFailed(underlyingGetMillis, prefix -> log.warn(prefix + " " + path + " " + ex.getMessage()));
 
 					throw ex;
 				}
 				val endGetUnderlyingTime = System.currentTimeMillis();
 				int underlyingGetMillis = (int) (endGetUnderlyingTime - endGetCacheTime);
-				incrUnderlyingTreeGet(underlyingGetMillis);
+				incrUnderlyingTreeGet(underlyingGetMillis, prefix -> log.info(prefix + " " + path));
 				
 				NodeData resData;
 				if (newData != null) {
@@ -210,7 +210,7 @@ public class DefaultRefreshableCached_DelegatingTreeData<TCacheStorageTreeData e
 			}
 		} else {
 			// cache miss
-			incrCacheGetMiss(cachedGetMillis);
+			incrCacheGetMiss(cachedGetMillis, prefix -> log.info(prefix + " " + path));
 			
 			// not-exist or not-in-cache? ... may save 'NotExistData' marker in cache?
 			// no marker yet... when not-exist => will always cause cache miss
@@ -224,7 +224,7 @@ public class DefaultRefreshableCached_DelegatingTreeData<TCacheStorageTreeData e
 			
 			val endGetUnderlyingTime = System.currentTimeMillis();
 			int underlyingGetMillis = (int) (endGetUnderlyingTime - endGetCacheTime);
-			incrUnderlyingTreeGet(underlyingGetMillis);
+			incrUnderlyingTreeGet(underlyingGetMillis, prefix -> log.info(prefix + " " + path));
 			
 			NodeData resData;
 			if (newData != null) {
@@ -457,7 +457,6 @@ public class DefaultRefreshableCached_DelegatingTreeData<TCacheStorageTreeData e
 		}
 		
 	}
-	
 	
 	// Update cache and manage Background Change Resolver / Pending Refresh Tasks
 	// ------------------------------------------------------------------------

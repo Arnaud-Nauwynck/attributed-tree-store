@@ -10,8 +10,8 @@ import lombok.extern.slf4j.Slf4j;
  * 
  */
 @Slf4j
-public abstract class RefreshableCached_DelegatingTreeData<TCacheStorageTreeData extends TreeData & IWriteTreeData> 
-	extends Cached_DelegatingTreeData<TCacheStorageTreeData> {
+public abstract class SyncCachedImage_TreeData<TCacheStorageTreeData extends TreeData & IWriteTreeData> 
+	extends CachedImage_TreeData<TCacheStorageTreeData> {
 
 	@Getter @Setter
 	protected long thresholdForBackgroundRefreshMillis = defaultCacheExpirationMillis - 1000; 
@@ -19,7 +19,7 @@ public abstract class RefreshableCached_DelegatingTreeData<TCacheStorageTreeData
 
 	// ------------------------------------------------------------------------
 
-	public RefreshableCached_DelegatingTreeData(String displayName, String displayBaseUrl, //
+	public SyncCachedImage_TreeData(String displayName, String displayBaseUrl, //
 			TreeData underlyingTree, 
 			TCacheStorageTreeData cachedTree) {
 		super(displayName, displayBaseUrl, underlyingTree, cachedTree);
