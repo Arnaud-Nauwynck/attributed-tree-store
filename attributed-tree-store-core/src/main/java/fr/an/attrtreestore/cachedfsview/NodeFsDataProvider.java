@@ -9,11 +9,11 @@ public abstract class NodeFsDataProvider {
 //		return queryNodeFsData(subpath, null);
 //	}
 
-	// TOADD public abstract CompletableFuture<NodeFsData> asyncQueryNodeFsData(NodeNamesPath subpath, PrefetchOtherNodeFsDataCallback optCallback);
+	// TOADD public abstract CompletableFuture<NodeFsData> asyncQueryNodeFsData(NodeNamesPath subpath, PrefetchNodeFsDataContext prefetchCtx);
 	
 	/** query underlying FileSystem, using configured baseUrl + appending subpath 
 	 * optionnally use <code>optCallback</code> to also build directo 
 	 */
-	public abstract NodeFsData queryNodeFsData(NodeNamesPath path, PrefetchOtherNodeFsDataCallback optCallback);
+	public abstract NodeFsData queryNodeFsData(NodeNamesPath path, PrefetchNodeFsDataContext prefetchCtx);
 
 }

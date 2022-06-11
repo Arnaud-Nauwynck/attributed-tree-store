@@ -2,7 +2,7 @@ package fr.an.attrtreestore.spi;
 
 public class BlobStoreFileInfo {
 
-    public final String path; // path!
+    public final String path;
     public final boolean isDir;
     public final long fileLength;
     public final long lastModifTime;

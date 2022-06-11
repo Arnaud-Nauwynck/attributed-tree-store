@@ -1,26 +1,28 @@
 package fr.an.attrtreestore.cachedfsview;
 
-import fr.an.attrtreestore.api.IPrefetchOtherReadTreeData;
 import fr.an.attrtreestore.api.IReadTreeData;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.PrefetchOtherNodeDataCallback;
 import fr.an.attrtreestore.api.TreeData;
-import fr.an.attrtreestore.cachedfsview.NodeFsDataToNodeDataConverter.DefaultNodeFsDataToNodeDataConverter;
+import fr.an.attrtreestore.api.readprefetch.IPrefetchReadTreeDataSupport;
+import fr.an.attrtreestore.api.readprefetch.PrefetchNodeDataContext;
+import fr.an.attrtreestore.cachedfsview.converter.ConverterPrefetchNodeFsDataContext;
+import fr.an.attrtreestore.cachedfsview.converter.NodeFsDataToNodeDataConverter;
+import fr.an.attrtreestore.cachedfsview.converter.NodeFsDataToNodeDataConverter.DefaultNodeFsDataToNodeDataConverter;
 import fr.an.attrtreestore.util.fsdata.NodeFsData;
 import lombok.val;
 
-public class NodeFsAdapterOnDemandTreeData extends TreeData implements IReadTreeData, IPrefetchOtherReadTreeData {
+public class NodeFsAdapterOnDemandTreeData extends TreeData implements IReadTreeData, IPrefetchReadTreeDataSupport {
 
-	protected final NodeFsDataProvider delegate;
+	protected final NodeFsDataProvider fsDataProvider;
 
-	protected final NodeFsDataToNodeDataConverter nodeDataConverter;
+	protected final NodeFsDataToNodeDataConverter converter;
 	
 	// ------------------------------------------------------------------------
 
-	public NodeFsAdapterOnDemandTreeData(NodeFsDataProvider delegate, NodeFsDataToNodeDataConverter nodeDataConverter) {
-		this.delegate = delegate;
-		this.nodeDataConverter = nodeDataConverter;
+	public NodeFsAdapterOnDemandTreeData(NodeFsDataProvider fsDataProvider, NodeFsDataToNodeDataConverter converter) {
+		this.fsDataProvider = fsDataProvider;
+		this.converter = converter;
 	}
 
 	public NodeFsAdapterOnDemandTreeData(NodeFsDataProvider delegate) {
@@ -37,17 +39,17 @@ public class NodeFsAdapterOnDemandTreeData extends TreeData implements IReadTree
 	}
 
 	@Override
-	public NodeData get(NodeNamesPath path, PrefetchOtherNodeDataCallback optCallback) {
-		val converterCallback = (optCallback != null)? new ConverterNodeFsDataCallback(optCallback, nodeDataConverter): null;
+	public NodeData get(NodeNamesPath path, PrefetchNodeDataContext prefetchCtx) {
+		val converterPrefetchCtx = (prefetchCtx != null)? new ConverterPrefetchNodeFsDataContext(prefetchCtx, converter): null;
 		
 		long refreshTimeMillis = System.currentTimeMillis(); // time client-side, before querying (otherwise may miss updates)
 
-		NodeFsData fsData = delegate.queryNodeFsData(path, converterCallback);
+		NodeFsData fsData = fsDataProvider.queryNodeFsData(path, converterPrefetchCtx);
 
 		if (fsData == null) {
 			return null;
 		}
-		val nodeData = nodeDataConverter.nodeFsDataToNodeData(path, fsData, refreshTimeMillis, false);
+		val nodeData = converter.nodeFsDataToNodeData(path, fsData, refreshTimeMillis, false);
 		return nodeData;
 	}
 

@@ -1,4 +1,4 @@
-package fr.an.attrtreestore.cachedfsview;
+package fr.an.attrtreestore.cachedfsview.converter;
 
 import java.util.TreeSet;
 

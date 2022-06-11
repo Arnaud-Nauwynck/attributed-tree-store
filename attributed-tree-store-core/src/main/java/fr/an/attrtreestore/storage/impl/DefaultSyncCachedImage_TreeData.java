@@ -23,11 +23,17 @@ import fr.an.attrtreestore.api.NodeAttr;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.PrefetchOtherNodeDataCallback;
 import fr.an.attrtreestore.api.SyncCachedImage_TreeData;
 import fr.an.attrtreestore.api.TreeData;
 import fr.an.attrtreestore.api.override.OverrideNodeStatus;
+import fr.an.attrtreestore.api.readprefetch.LimitingPrefetchNodeDataContext;
+import fr.an.attrtreestore.api.readprefetch.LimitingPrefetchNodeDataContext.PrefetchCount;
+import fr.an.attrtreestore.api.readprefetch.LimitingPrefetchNodeDataContext.PrefetchLimitParams;
+import fr.an.attrtreestore.api.readprefetch.LimitingPrefetchNodeDataContext.PrefetchTimeLimit;
+import fr.an.attrtreestore.api.readprefetch.PrefetchNodeDataContext;
+import fr.an.attrtreestore.api.readprefetch.PrefetchProposedPathItem;
 import fr.an.attrtreestore.util.DefaultNamedTreadFactory;
+import fr.an.attrtreestore.util.LoggingCounter;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.val;
@@ -88,13 +94,52 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 	@Getter @Setter
 	private int maxSubmittingResolveChangeTaskCount = 50;
 
-	private final PrefetchOtherNodeDataCallback prefetchOtherNodeDataCallback = new PrefetchOtherNodeDataCallback() {
+	private PrefetchLimitParams prefetchLimitParams = new PrefetchLimitParams(
+			100_000, // maxCount;
+			3, // maxRecurseLevel
+			5000 // maxDurationMillis
+			);
+	
+	private final PrefetchNodeDataContext prefetchNodeDataCallback = new PrefetchNodeDataContext() {
 		@Override
-		public void onPrefetchOtherNodeData(NodeNamesPath path, NodeData data, boolean isIncomplete) {
+		public void onPrefetchNodeData(NodeNamesPath path, NodeData data, boolean isIncomplete) {
 			safeOnPrefetchOtherNodeData(path, data, isIncomplete);
+		}
+		@Override
+		public void onProposePrefetchPathItem(PrefetchProposedPathItem prefetchDataItem) {
+			safeOnProposePrefetchPathItem(prefetchDataItem);
+		}
+		@Override
+		public PrefetchNodeDataContext createChildPrefetchContext() {
+			return this;
 		}
 	};
 
+    protected final LoggingCounter underlyingTree_get_resyncDeletedAncestorCounter = new LoggingCounter("underlying.get-resync-deleted-ancestor");
+    protected final LoggingCounter underlying_prefetchedOtherNode_Counter = new LoggingCounter("underlying-prefetchedOtherNode");
+
+    enum CachePutReason {
+        underlyingGet,
+        underlyingGet_expired,
+        underlyingPrefetchOther,
+        resyncDeletedAncestor,
+    }
+    protected final LoggingCounter cachedTree_put_underlyingGet_Counter = new LoggingCounter("cache.put-underlyingGet");
+    protected final LoggingCounter cachedTree_put_underlyingGet_expired_Counter = new LoggingCounter("cache.put-underlyingGet-expired");
+    protected final LoggingCounter cachedTree_put_underlyingPrefetchOther_Counter = new LoggingCounter("cache.put-underlyingPrefetchOther");
+    protected final LoggingCounter cachedTree_put_resyncDeletedAncestor_Counter = new LoggingCounter("cache.put-resyncDeletedAncestor");
+
+    protected final LoggingCounter cachedTree_putTransient_underlyingGet_Counter = new LoggingCounter("cache.putTransient-underlyingGet");
+    protected final LoggingCounter cachedTree_putTransient_underlyingGet_expired_Counter = new LoggingCounter("cache.putTransient-underlyingGet-expired");
+    protected final LoggingCounter cachedTree_putTransient_underlyingPrefetchOther_Counter = new LoggingCounter("cache.putTransient-underlyingPrefetchOther");
+    protected final LoggingCounter cachedTree_putTransient_resyncDeletedAncestor_Counter = new LoggingCounter("cache.putTransient-resyncDeletedAncestor");
+
+    protected final LoggingCounter cachedTree_remove_Counter = new LoggingCounter("cache.remove");
+    // TOADD protected final LoggingCounter cachedTree_remove_resyncDeletedAncestor_Counter = new LoggingCounter("cache.remove-resyncDeletedAncestor");
+    
+//    protected final LoggingCounter cachedTree_put_transienFieldsChange_Counter = new LoggingCounter("cache.put-transientFieldsChange");
+    protected final LoggingCounter cachedTree_get_resyncDeletedAncestorCounter = new LoggingCounter("cache.get-resync-deleted-ancestor");
+    
 	// ------------------------------------------------------------------------
 
 	public DefaultSyncCachedImage_TreeData(
@@ -138,6 +183,7 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 		
 		val endGetCacheTime = System.currentTimeMillis();
 		int cachedGetMillis = (int) (endGetCacheTime - now);
+		// cf next for incr cachedTree counter: either incrUsed() | incrCacheGetHitButExpired() | incrCacheGetMiss()
 		
 		if (cachedData != null) {
 			// check cache expiration
@@ -162,8 +208,10 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 				incrCacheGetHitButExpired(cachedGetMillis, prefix -> log.info(prefix + " " + path)); 
 				NodeData newData;
 				try {
+				    // TODO counter
 					if (underlyingTree_supportsPrefetchOther != null) {
-						newData = underlyingTree_supportsPrefetchOther.get(path, prefetchOtherNodeDataCallback);
+						val prefetchCtx = createPrefetchContext(now, useCacheIfResponseExceedTimeMillis);
+						newData = underlyingTree_supportsPrefetchOther.get(path, prefetchCtx);
 					} else {
 						newData = underlyingTree.get(path);
 					}
@@ -190,7 +238,8 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 					boolean equalsIgnoreTransient = cachedData.equalsIgnoreTransientFields(newData);
 					boolean equals = equalsIgnoreTransient && cachedData.compareTransientFields(newData);
 					
-					doCachePut_clearPendingTaskIfAny(path, resData, equalsIgnoreTransient, equals);
+					doCachePut_clearPendingTaskIfAny(path, resData, CachePutReason.underlyingGet, // TODO CachePutReason.underlyingGet_expired 
+					        equalsIgnoreTransient, equals);
 
 					if (!equalsIgnoreTransient) {
 						// check compare+sync newData.childNames with previously cached
@@ -216,8 +265,11 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 			// no marker yet... when not-exist => will always cause cache miss
 
 			NodeData newData;
+			// TODO counter
 			if (underlyingTree_supportsPrefetchOther != null) {
-				newData = underlyingTree_supportsPrefetchOther.get(path, prefetchOtherNodeDataCallback);
+				val prefetchContext = createPrefetchContext(now, useCacheIfResponseExceedTimeMillis);
+				
+				newData = underlyingTree_supportsPrefetchOther.get(path, prefetchContext);
 			} else {
 				newData = underlyingTree.get(path);
 			}
@@ -231,15 +283,16 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 				// newData exist but previously not in cache
 				resData = copyWithLastExternalRefreshTimeMillis(newData, endGetCacheTime);
 				
-				doCachePut_clearPendingTaskIfAny(path, resData);
+				doCachePut_clearPendingTaskIfAny(path, resData, CachePutReason.underlyingGet); // synonym underlyingGet_miss ? 
 
-				// preload more child in background..
-				if (resData.childCount() > 0) {
-					for (val childName : resData.childNames) {
-						val childPath = path.toChild(childName);
-						enqueueRefresh_resolveChange(childPath);
-					}
-				}
+				// TODO does not work?... too slow, too many (repeated?) calls
+//				// preload more child in background..
+//				if (resData.childCount() > 0) {
+//					for (val childName : resData.childNames) {
+//						val childPath = path.toChild(childName);
+//						enqueueRefresh_resolveChange(childPath);
+//					}
+//				}
 				
 			} else {
 				// newData does not exist, and previously not in cache either
@@ -249,6 +302,13 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 			}
 			return resData;
 		}
+	}
+
+	private LimitingPrefetchNodeDataContext createPrefetchContext(
+			long fromStartTime, long maxTime) {
+		val timeLimit = new PrefetchTimeLimit(prefetchLimitParams, fromStartTime, maxTime);
+		val count = new PrefetchCount();
+		return new LimitingPrefetchNodeDataContext(prefetchNodeDataCallback, timeLimit, count, 0);
 	}
 
 	// TOCHECK.. maybe useless?
@@ -304,38 +364,51 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 	}
 
 	private void resyncDeletedAncestorOf(NodeNamesPath path) {
+	    val putReason = CachePutReason.resyncDeletedAncestor; 
 		// need resolve deleted ancestor parent, and recursive delete from cache
 		// example: "a/b/c/d" detected as deleted .. check parent "a/b/c", then "a/b", then "a" ..
 		val pathElementCount = path.pathElementCount(); // example 4
 		if (pathElementCount > 0) {
 			int ancestorPathLevel = pathElementCount-1; // example
-			NodeNamesPath ancestorPath = path.toParent();
+			NodeNamesPath currAncestorPath = path.toParent();
 			NodeData ancestorData = null;
-			for(; ancestorPathLevel > 0; ancestorPathLevel--, ancestorPath=ancestorPath.toParent()) {
+			for(; ancestorPathLevel > 0; ancestorPathLevel--, currAncestorPath=currAncestorPath.toParent()) {
 				
+			    val underlyingGetBefore = System.currentTimeMillis();
+			    
 				// do not pass prefetchOtherCallback here (child of deleted parent?..)
-				// if (underlyingTree_supportsPrefetchOther != null) {
-				//	underlyingTree_supportsPrefetchOther.get(ancestorPath, prefetchOtherNodeDataCallback);
-				// } else {
-				ancestorData = underlyingTree.get(ancestorPath);
-				// }
+				//.. instead of underlyingTree_supportsPrefetchOther.get(ancestorPath, prefetchOtherNodeDataCallback);
+			    // TOADD counter
+				ancestorData = underlyingTree.get(currAncestorPath);
+
+				long underlyingGetMillis = System.currentTimeMillis() - underlyingGetBefore;
+                
+				val fCurrAncestorPath = currAncestorPath;
+				underlyingTree_get_resyncDeletedAncestorCounter.incr(underlyingGetMillis, prefix -> log.info(prefix + " " + fCurrAncestorPath));
 				
 				if (ancestorData == null) {
-					doCacheRemove_clearPendingTaskIfAny(ancestorPath);
+					doCacheRemove_clearPendingTaskIfAny(currAncestorPath);
 				} else {
 					break;
 				}
 			}
 			// loop stop either ancestorData==null or ancestorPathLevel==0
-			val prevCachedAncestorData = cachedTree.get(ancestorPath);
+			val ancestorPath = currAncestorPath;
+			
+			val cacheGetBefore = System.currentTimeMillis();
+			
+			val prevCachedAncestorData = cachedTree.get(currAncestorPath);
+
+			val cacheGetMillis = System.currentTimeMillis() - cacheGetBefore;
+			cachedTree_get_resyncDeletedAncestorCounter.incr(cacheGetMillis, prefix -> log.info(prefix + " " + ancestorPath));
+			
 			if (ancestorData != null) {
-				
 				// update ancestor not removed
-				doCachePut_clearPendingTaskIfAny(ancestorPath, ancestorData);
+				doCachePut_clearPendingTaskIfAny(currAncestorPath, ancestorData, putReason);
 
 				if (prevCachedAncestorData != null) {
 					// => also check other previous cached ancestor-childs are in sync
-					resyncCacheChildListOf(ancestorPath, ancestorData, prevCachedAncestorData);
+					resyncCacheChildListOf(currAncestorPath, ancestorData, prevCachedAncestorData);
 				} // else should not occur?
 				
 			} else { // ancestorPathLevel == 0
@@ -344,7 +417,7 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 				val newRootData = new NodeData(path.pathElements[0], 0, 0,
 						ImmutableSet.<NodeName>of(), ImmutableMap.<String,NodeAttr>of(),
 						0L, 0, 0, 0, 0);
-				doCachePut_clearPendingTaskIfAny(rootPath, newRootData);
+				doCachePut_clearPendingTaskIfAny(rootPath, newRootData, putReason);
 			}
 		}
 	}
@@ -409,19 +482,49 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 	// ------------------------------------------------------------------------
 
 	protected void safeOnPrefetchOtherNodeData(NodeNamesPath path, NodeData data, boolean isIncomplete) {
-		try {
+		val now = System.currentTimeMillis();
+	    try {
 			doOnPrefetchOtherNodeData(path, data, isIncomplete);
 		} catch(Exception ex) {
 			log.warn("Failed doOnPrefetchOtherNodeData .. ignore, no rethrow " + ex.getMessage());
 		}
+	    val millis = System.currentTimeMillis() - now;
+	    underlying_prefetchedOtherNode_Counter.incr(millis, prefix -> log.info(prefix + " " + path));
 	}
+
 	protected void doOnPrefetchOtherNodeData(NodeNamesPath path, NodeData data, boolean isIncomplete) {
-		val refreshTime = data.getLastExternalRefreshTimeMillis(); // TOCHECK
+	    val putReason = CachePutReason.underlyingPrefetchOther;
+	    val refreshTime = data.getLastExternalRefreshTimeMillis(); // TOCHECK
 		NodeData newData = copyWithLastExternalRefreshTimeMillis(data, refreshTime);
 		
 		// check if previously already in cache, and with same time
 		// if already in => do nothing
 		// else => put in cache... but may enqueue refresh if still incomplete
+		NodeData prevData = getIfInMemCache(path);
+
+		if (prevData == null) {
+			doCachePut_clearPendingTaskIfAny(path, newData, putReason);
+		} else {
+		    if (isIncomplete) {
+		        // merge newData with existing prevData
+		        newData = mergeIncompleteWithPrevData(newData, prevData);
+		    }
+			// compare if same time
+			if (prevData.equalsIgnoreTransientFields(newData)) {
+				// do nothing
+			} else {
+				if (!isIncomplete) {
+					doCachePut_clearPendingTaskIfAny(path, newData, putReason);
+				} else {
+					// TOCHECK put in cache but still enqueue refresh later??
+					doCachePut_clearPendingTaskIfAny(path, newData, putReason);
+				}
+			}
+		}
+		
+	}
+
+	private NodeData getIfInMemCache(NodeNamesPath path) {
 		NodeData prevData;
 		if (cachedTree_supportsInMemCached != null) {
 			val prevDataIfInCache = cachedTree_supportsInMemCached.getIfInMemCache(path);
@@ -433,30 +536,37 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 			}
 		} else {
 			// may cause recurse!... get(parent) -> prefetchCallback(childPath, childData) -> get(childPath) !! 
-			prevData = cachedTree.get(path);
+		    // TOADD counter
+		    prevData = cachedTree.get(path);
 		}
-
-		if (prevData == null) {
-			doCachePut_clearPendingTaskIfAny(path, newData);
+		return prevData;
+	}
+	
+	protected void safeOnProposePrefetchPathItem(PrefetchProposedPathItem proposedPathItem) {
+		val path = proposedPathItem.getPath();
+		// boolean accept = recurseLevel >= maxPrefetchCallbackLevel;
+		// TODO TOADD
+		
+		// test not already in cache or cache.lastModifedTime != lastModifiedTime
+		val foundCachedData = getIfInMemCache(path);
+		
+		boolean accept;
+		if (foundCachedData == null) {
+			accept = true;
 		} else {
-		    if (isIncomplete) {
-		        // merge newData with existing prevData
-		        newData = mergeIncompleteWithPrevData(newData, prevData);
-		    }
-			// compare if same time
-			if (prevData.equalsIgnoreTransientFields(newData)) {
-				// do nothing
-			} else {
-				if (!isIncomplete) {
-					doCachePut_clearPendingTaskIfAny(path, newData);
-				} else {
-					// TOCHECK put in cache but still enqueue refresh later??
-					doCachePut_clearPendingTaskIfAny(path, newData);
-				}
-			}
+			// already in cache.. check for different lastModifiedTime
+			accept = proposedPathItem.getLastModifiedTime() != foundCachedData.getExternalLastModifiedTime();
 		}
 		
+		if (accept) {
+			proposedPathItem.acceptToCompleteDataItem(prefetchNodeDataCallback);
+		} else {
+			// notify to maybe free memory
+			proposedPathItem.ignoreToCompleteDataItem();
+		}
 	}
+
+	
 	
 	// Update cache and manage Background Change Resolver / Pending Refresh Tasks
 	// ------------------------------------------------------------------------
@@ -464,22 +574,52 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 	protected void doCacheRemove_clearPendingTaskIfAny(NodeNamesPath path
 			//, NodeData data
 			) {
+        val now = System.currentTimeMillis();
+        
 		cachedTree.remove(path);
+		
+		val millis = System.currentTimeMillis() - now;
+		cachedTree_remove_Counter.incr(millis, prefix -> log.info(prefix + " " + path));
 		clearPendingTaskIfAny(path);
 	}
 	
-	protected void doCachePut_clearPendingTaskIfAny(NodeNamesPath path, NodeData data) {
-		doCachePut_clearPendingTaskIfAny(path, data, false, false);
+	protected void doCachePut_clearPendingTaskIfAny(NodeNamesPath path, NodeData data, CachePutReason putReason) {
+		doCachePut_clearPendingTaskIfAny(path, data, putReason,
+		        false, false);
 	}
 
-	protected void doCachePut_clearPendingTaskIfAny(NodeNamesPath path, NodeData data, 
+	protected void doCachePut_clearPendingTaskIfAny(NodeNamesPath path, NodeData data, CachePutReason putReason,
 			boolean equalsIgnoreTransientFields, boolean equals) {
 		if (! equals) {
+		    val now = System.currentTimeMillis();
+		    LoggingCounter counter;
+		    
 			if (! equalsIgnoreTransientFields) {
 				cachedTree.put(path, data);
+				
+				switch(putReason) {
+				case underlyingGet: counter = cachedTree_put_underlyingGet_Counter; break; 
+				case underlyingGet_expired: counter = cachedTree_put_underlyingGet_expired_Counter; break; 
+				case underlyingPrefetchOther: counter = cachedTree_put_underlyingPrefetchOther_Counter; break; 
+				case resyncDeletedAncestor: counter = cachedTree_put_resyncDeletedAncestor_Counter; break; 
+				default: // should not occur
+				    counter = cachedTree_put_underlyingGet_Counter; break;
+				}
 			} else {
 				cachedTree.put_transientFieldsChanged(path, data);
+				
+                switch(putReason) {
+                case underlyingGet: counter = cachedTree_putTransient_underlyingGet_Counter; break; 
+                case underlyingGet_expired: counter = cachedTree_putTransient_underlyingGet_expired_Counter; break; 
+                case underlyingPrefetchOther: counter = cachedTree_putTransient_underlyingPrefetchOther_Counter; break; 
+                case resyncDeletedAncestor: counter = cachedTree_putTransient_resyncDeletedAncestor_Counter; break; 
+                default: // should not occur
+                    counter = cachedTree_put_underlyingGet_Counter; break;
+                }
 			}
+
+			val millis = System.currentTimeMillis() - now;
+			counter.incr(millis, msgPrefix -> log.info(msgPrefix + " " + path));
 		}
 		clearPendingTaskIfAny(path);
 	}
@@ -558,8 +698,11 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 	}
 
 	protected void doRefreshCache(NodeNamesPath path) {
-		int cacheExpirationMillis = 0;
+		int cacheExpirationMillis = 5 * 60_000; // 5 minutes ... TODO TOCHECK !!! should enqueue path + minRefreshTime
 		long useCacheIfResponseExceedTimeMillis = System.currentTimeMillis() + 100000;
+
+        // TOADD counter
+
 		getCacheWaitMax(path, cacheExpirationMillis, useCacheIfResponseExceedTimeMillis);
 	}
 		
@@ -587,9 +730,11 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 				int countNotSubmittedYet = totalPending - pendingCacheExpiredTaskProcessingCount - pendingCacheExpiredTaskSubmittedCount;
 				if (countNotSubmittedYet > 0) {
 					// peek up next (not submitted yet) pending task to submit, by linked priority
+				    val execService = getOrCreateBackgroundCacheExpiredRefreshExecutorService();
 					for(val nextSubmitTask: pendingCacheExpiredTasks.values()) {
 						if (nextSubmitTask.submitedFuture == null) {
-							val execService = getOrCreateBackgroundCacheExpiredRefreshExecutorService();
+						    // TOCHECK 
+						    // nextSubmitTask.status = 
 							nextSubmitTask.submitedFuture = execService.submit(() -> doProcessPendingRefreshTaskAndSubmitNext(nextSubmitTask));
 							pendingCacheExpiredTaskSubmittedCount++;
 							break;
@@ -670,5 +815,37 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 		}
 		return res;
 	}
+
+    @Override
+    public void setLoggingCountersFreq(int freq) {
+        super.setLoggingCountersFreq(freq);
+        underlyingTree_get_resyncDeletedAncestorCounter.setLogFreq(freq);
+        underlying_prefetchedOtherNode_Counter.setLogFreq(freq);
+
+        cachedTree_put_underlyingGet_Counter.setLogFreq(freq);
+        cachedTree_put_underlyingGet_expired_Counter.setLogFreq(freq);
+        cachedTree_put_underlyingPrefetchOther_Counter.setLogFreq(freq);
+        cachedTree_put_resyncDeletedAncestor_Counter.setLogFreq(freq);
+
+        cachedTree_putTransient_underlyingGet_Counter.setLogFreq(freq);
+        cachedTree_putTransient_underlyingGet_expired_Counter.setLogFreq(freq);
+        cachedTree_putTransient_underlyingPrefetchOther_Counter.setLogFreq(freq);
+        cachedTree_putTransient_resyncDeletedAncestor_Counter.setLogFreq(freq);
+
+        cachedTree_remove_Counter.setLogFreq(freq);
+        cachedTree_get_resyncDeletedAncestorCounter.setLogFreq(freq);
+    }
+
+    // TODO change to applyConfigureOnCounters(Consumer<> configureFunc)
+//    @Override
+//    public void setLoggingCountersMaxDelayMillis(int millis) {
+//        super.setLoggingCountersMaxDelayMillis(millis);
+//        underlyingTree_get_resyncDeletedAncestorCounter.setLogMaxDelayMillis(millis);
+//        underlying_prefetchedOtherNode_Counter.setLogMaxDelayMillis(millis);
+//        cachedTree_put_Counter.setLogMaxDelayMillis(millis);
+//        cachedTree_remove_Counter.setLogMaxDelayMillis(millis);
+//        cachedTree_put_transienFieldsChange_Counter.setLogMaxDelayMillis(millis);
+//        cachedTree_get_resyncDeletedAncestorCounter.setLogMaxDelayMillis(millis);
+//    }
 	
 }

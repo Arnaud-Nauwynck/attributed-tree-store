@@ -1,5 +1,6 @@
 package fr.an.attrtreestore.api;
 
+import fr.an.attrtreestore.api.readprefetch.IPrefetchReadTreeDataSupport;
 import fr.an.attrtreestore.util.LoggingCounter;
 import fr.an.attrtreestore.util.LoggingCounter.MsgPrefixLoggingCallback;
 import lombok.Getter;
@@ -22,7 +23,7 @@ public abstract class CachedImage_TreeData<TCacheStorageTreeData extends TreeDat
 	 * rather than 'NodeData get(NodeNamesPath path)'
 	 */
 	protected final TreeData underlyingTree;
-	protected final IPrefetchOtherReadTreeData underlyingTree_supportsPrefetchOther; 
+	protected final IPrefetchReadTreeDataSupport underlyingTree_supportsPrefetchOther; 
 	
 	protected final TCacheStorageTreeData cachedTree;
 	protected final IInMemCacheReadTreeData cachedTree_supportsInMemCached; // = null or (ICacheReadTreeData)cachedTree
@@ -36,21 +37,21 @@ public abstract class CachedImage_TreeData<TCacheStorageTreeData extends TreeDat
 	@Getter @Setter
 	protected int defaultUseCacheIfResponseExceedMillis = 3000; // 3 seconds
 
+//	@Getter
+//	private LoggingCounter cacheGetCounter = new LoggingCounter("cache.get");
 	@Getter
-	private LoggingCounter cacheGetCount = new LoggingCounter("cache.get");
+	private LoggingCounter cacheGetHitCounter = new LoggingCounter("cache.get-hit");
 	@Getter
-	private LoggingCounter cacheGetHitCount = new LoggingCounter("cache.get-hit");
+	private LoggingCounter cacheGetHitButExpiredCounter = new LoggingCounter("cache.get-hit-but-expired");
 	@Getter
-	private LoggingCounter cacheGetHitButExpiredCount = new LoggingCounter("cache.get-hit-but-expired");
-	@Getter
-	private LoggingCounter cacheGetMissCount = new LoggingCounter("cache.get-miss");
+	private LoggingCounter cacheGetMissCounter = new LoggingCounter("cache.get-miss");
 
 	@Getter
-	private LoggingCounter underlyingGetCount = new LoggingCounter("underlying.get");
+	private LoggingCounter underlyingGetCounter = new LoggingCounter("underlying.get");
 
-	// failed calls are counted twice in underlyingGetCount + underlyingGetFailedCount 
+	// failed calls are counted twice in underlyingGetCounter + underlyingGetFailedCounter
 	@Getter
-	private LoggingCounter underlyingGetFailedCount = new LoggingCounter("underlying.get-failed");
+	private LoggingCounter underlyingGetFailedCounter = new LoggingCounter("underlying.get-failed");
 
 	// ------------------------------------------------------------------------
 
@@ -60,7 +61,7 @@ public abstract class CachedImage_TreeData<TCacheStorageTreeData extends TreeDat
 		this.displayName = displayName;
 		this.displayBaseUrl = displayBaseUrl;
 		this.underlyingTree = underlyingTree;
-		this.underlyingTree_supportsPrefetchOther = (underlyingTree instanceof IPrefetchOtherReadTreeData)? (IPrefetchOtherReadTreeData) underlyingTree : null; 
+		this.underlyingTree_supportsPrefetchOther = (underlyingTree instanceof IPrefetchReadTreeDataSupport)? (IPrefetchReadTreeDataSupport) underlyingTree : null; 
 		this.cachedTree = cachedTree;
 		this.cachedTree_supportsInMemCached = (cachedTree instanceof IInMemCacheReadTreeData)? (IInMemCacheReadTreeData) cachedTree : null; 
 	}
@@ -82,42 +83,58 @@ public abstract class CachedImage_TreeData<TCacheStorageTreeData extends TreeDat
 	// ------------------------------------------------------------------------
 	
 	protected void incrCacheGetHit(int millis, MsgPrefixLoggingCallback logCallback) {
-		cacheGetCount.incr(millis, logCallback);
+		cacheGetHitCounter.incr(millis, logCallback);
 	}
 
 	protected void incrCacheGetHitButExpired(int millis, MsgPrefixLoggingCallback logCallback) {
-		cacheGetCount.incr(millis, logCallback);
+		cacheGetHitButExpiredCounter.incr(millis, logCallback);
 	}
 
 	protected void incrCacheGetMiss(int millis, MsgPrefixLoggingCallback logCallback) {
-		cacheGetCount.incr(millis, logCallback);
+		cacheGetMissCounter.incr(millis, logCallback);
 	}
 
 	protected void incrUnderlyingTreeGet(int millis, MsgPrefixLoggingCallback logCallback) {
-		underlyingGetCount.incr(millis, logCallback);
+		underlyingGetCounter.incr(millis, logCallback);
 	}
 
 	protected void incrUnderlyingTreeGetFailed(int millis, MsgPrefixLoggingCallback logCallback) {
-		underlyingGetCount.incr(millis, logCallback); // also increment count
-		underlyingGetFailedCount.incr(millis, logCallback);
+		underlyingGetCounter.incr(millis, logCallback); // also increment count
+		underlyingGetFailedCounter.incr(millis, logCallback);
 	}
 	
 	public void setLoggingCountersFreq(int freq) {
-		cacheGetCount.setLogFreq(freq);
-		cacheGetHitCount.setLogFreq(freq);
-		cacheGetHitButExpiredCount.setLogFreq(freq);
-		cacheGetMissCount.setLogFreq(freq);
-		underlyingGetCount.setLogFreq(freq);
-		underlyingGetFailedCount.setLogFreq(freq);
+		// cacheGetCount.setLogFreq(freq);
+		cacheGetHitCounter.setLogFreq(freq);
+		cacheGetHitButExpiredCounter.setLogFreq(freq);
+		cacheGetMissCounter.setLogFreq(freq);
+		underlyingGetCounter.setLogFreq(freq);
+		underlyingGetFailedCounter.setLogFreq(freq);
 	}
 
 	public void setLoggingCountersMaxDelayMillis(int millis) {
-		cacheGetCount.setLogMaxDelayMillis(millis);
-		cacheGetHitCount.setLogMaxDelayMillis(millis);
-		cacheGetHitButExpiredCount.setLogMaxDelayMillis(millis);
-		cacheGetMissCount.setLogMaxDelayMillis(millis);
-		underlyingGetCount.setLogMaxDelayMillis(millis);
-		underlyingGetFailedCount.setLogMaxDelayMillis(millis);
+		// cacheGetCount.setLogMaxDelayMillis(millis);
+		cacheGetHitCounter.setLogMaxDelayMillis(millis);
+		cacheGetHitButExpiredCounter.setLogMaxDelayMillis(millis);
+		cacheGetMissCounter.setLogMaxDelayMillis(millis);
+		underlyingGetCounter.setLogMaxDelayMillis(millis);
+		underlyingGetFailedCounter.setLogMaxDelayMillis(millis);
 	}
+
+	public int getCacheGetHitCount() {
+	    return cacheGetHitCounter.getCount();
+	}
+    public int getCacheGetHitButExpiredCount() {
+        return cacheGetHitButExpiredCounter.getCount();
+    }
+    public int getCacheGetMissCount() {
+        return cacheGetMissCounter.getCount();
+    }
+    public int getUnderlyingGetCount() {
+        return underlyingGetCounter.getCount();
+    }
+    public int getUnderlyingGetFailedCount() {
+        return underlyingGetFailedCounter.getCount();
+    }
 
 }

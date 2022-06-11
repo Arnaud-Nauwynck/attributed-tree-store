@@ -1,23 +1,19 @@
 package fr.an.attrtreestore.util;
 
-import fr.an.attrtreestore.util.LoggingCounter.LoggingCounterParams.LoggingCounterParamsBuilder;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.val;
 
 public class LoggingCounter {
 
-	@Builder
-	@AllArgsConstructor
+	@NoArgsConstructor  @AllArgsConstructor
 	public static class LoggingCounterParams {
 	
-		@Builder.Default
 		@Getter @Setter
 		private int logFreq = 1000;
 	
-		@Builder.Default
 		@Getter @Setter
 		private int logMaxDelayMillis = 30 * 1000;
 	
@@ -54,11 +50,7 @@ public class LoggingCounter {
 	// ------------------------------------------------------------------------
 	
 	public LoggingCounter(String displayName) {
-		this(displayName, LoggingCounterParams.builder());
-	}
-
-	public LoggingCounter(String displayName, LoggingCounterParamsBuilder params) {
-		this(displayName, params.build());
+		this(displayName, new LoggingCounterParams());
 	}
 
 	public LoggingCounter(String displayName, LoggingCounterParams params) {
@@ -84,12 +76,26 @@ public class LoggingCounter {
 		val elapsed =  now - lastLogTimeMillis;
 		log = log || (elapsed > logMaxDelayMillis);
 		if (log) {
-			val msgPrefix = "(..+" + countSinceLastLog + " = " + count //
-					+ " + " + durationToString(sumMillisSinceLastLog) //
-					+ ", since " + durationToString(elapsed) + ")" //
-					+ " " + displayName;
+			val msgPrefix = new StringBuilder();
+			msgPrefix.append("(..");
+			if (countSinceLastLog != 1) {
+			    msgPrefix.append("+" + countSinceLastLog + "=");
+			}
+			msgPrefix.append("" + count);
+			if (sumMillisSinceLastLog != 0) {
+			    if (sumMillisSinceLastLog > 16) { // precision of jvm millis
+			        msgPrefix.append(" : " + durationToString(sumMillisSinceLastLog));
+			    }
+			    if (sumMillisSinceLastLog != elapsed
+			            && elapsed > 16 // ?
+			            && lastLogTimeMillis != 0) {
+			        msgPrefix.append(" since " + durationToString(elapsed));
+			    }
+			}
+			msgPrefix.append(")");
+			msgPrefix.append(" " + displayName);
 			
-			msgPrefixLoggingCallback.logWithMessagePrefix(msgPrefix);
+			msgPrefixLoggingCallback.logWithMessagePrefix(msgPrefix.toString());
 			
 			this.countSinceLastLog = 0;
  			this.sumMillisSinceLastLog = 0;
