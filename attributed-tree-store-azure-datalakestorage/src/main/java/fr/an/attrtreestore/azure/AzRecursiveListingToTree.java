@@ -5,7 +5,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.ExecutorService;
 
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
 import com.azure.storage.file.datalake.models.PathItem;
@@ -20,29 +19,31 @@ import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import lombok.AllArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import lombok.val;
 
-@RequiredArgsConstructor
+/**
+ * 
+ */
 public abstract class AzRecursiveListingToTree {
 
-	private final ExecutorService executorService;
 	private final NodeNameEncoder nameEncoder;
 	
-	private final DataLakeDirectoryClient srcBaseDir;
-	// private final String srcBaseSubDirectoryPath; 
-	
 	private final IWriteTreeData destTree;
-	private final NodeNamesPath destBasePath;
 	
-	private int maxRetry = 5;
+	private int maxRetryAzQueryListPath = 5;
 	
 	// ------------------------------------------------------------------------
 
+	public AzRecursiveListingToTree(NodeNameEncoder nameEncoder, IWriteTreeData destTree) {
+		this.nameEncoder = nameEncoder;
+		this.destTree = destTree;
+	}
 	
 	// ------------------------------------------------------------------------
 	
 	public void executeListing(
+			DataLakeDirectoryClient srcBaseDir,
+			NodeNamesPath destBasePath			
 			) {
 		// String azDirPath = srcBaseDir.getDirectoryName();
 		NodeData nodeData = destTree.get(destBasePath);
@@ -55,7 +56,7 @@ public abstract class AzRecursiveListingToTree {
 				return; // should not occur
 			}		
 			// ** az query listPaths **
-			val pathItems = AzDatalakeStoreUtils.retryableAzQueryListPaths(srcBaseDir, maxRetry);
+			val pathItems = AzDatalakeStoreUtils.retryableAzQueryListPaths(srcBaseDir, maxRetryAzQueryListPath);
 			
 			val name = destBasePath.lastNameOrEmpty();
 			nodeData = dirPropsAndPathItemsToNodeData(name, pathProps, pathItems);
@@ -66,10 +67,10 @@ public abstract class AzRecursiveListingToTree {
 			optChildPathItems = null;
 		}
 		
-		recursiveDirListing(srcBaseDir, destBasePath, nodeData, optChildPathItems);
+		recurseOnMissingDirChildItems(srcBaseDir, destBasePath, nodeData, optChildPathItems);
 	}
 	
-	protected void recursiveDirListing(
+	protected void recurseOnMissingDirChildItems(
 			DataLakeDirectoryClient dirClient,
 			NodeNamesPath destPath,
 			NodeData nodeData,
@@ -102,12 +103,12 @@ public abstract class AzRecursiveListingToTree {
 				if (foundChildData.type == NodeData.TYPE_DIR) {
 					val childDirClient = dirClient.getSubdirectoryClient(childName.toText());
 					// *** recurse ***
-					recursiveDirListing(childDirClient, childPath, foundChildData, null);
+					recurseOnMissingDirChildItems(childDirClient, childPath, foundChildData, null);
 				} // else ignore already found file NodeData
 			}
 		} else { // need az query getProperties() or listPaths()
 			// ** az query listPaths **
-			val childPathItems = AzDatalakeStoreUtils.retryableAzQueryListPaths(dirClient, maxRetry);
+			val childPathItems = AzDatalakeStoreUtils.retryableAzQueryListPaths(dirClient, maxRetryAzQueryListPath);
 			
 			childPathItemsToRecurse = new ArrayList<>(notFoundChildNames.size());
 			for(val childPathItem: childPathItems) {
@@ -120,14 +121,23 @@ public abstract class AzRecursiveListingToTree {
 		}
 		
 		if (childPathItemsToRecurse != null && !childPathItemsToRecurse.isEmpty()) {
-			val parentDirClient = dirClient;  
-			for(val childPathItem: childPathItemsToRecurse) {
-				val childFilename = AzDatalakeStoreUtils.pathItemToChildName(childPathItem);
-				val childName = nameEncoder.encode(childFilename);
-				val childPath = destPath.toChild(childName);
-				
-				putPathItem_recurseOnMissingDirChildItems(childPathItem, childPath, parentDirClient);
-			}
+			putChildPathItemList_recurseOnMissingDirChildItems(dirClient, destPath, childPathItemsToRecurse);
+		}
+	}
+
+	/**
+	 * may override to use Async api, or (blocking api + ) ExecutorService
+	 */
+	protected void putChildPathItemList_recurseOnMissingDirChildItems(
+			DataLakeDirectoryClient parentDirClient,
+			NodeNamesPath parentDestPath, 
+			List<PathItem> childPathItemsToRecurse) {
+		for(val childPathItem: childPathItemsToRecurse) {
+			val childFilename = AzDatalakeStoreUtils.pathItemToChildName(childPathItem);
+			val childName = nameEncoder.encode(childFilename);
+			val childPath = parentDestPath.toChild(childName);
+			
+			putPathItem_recurseOnMissingDirChildItems(childPathItem, childPath, parentDirClient);
 		}
 	}
 	
@@ -148,7 +158,7 @@ public abstract class AzRecursiveListingToTree {
 			destTree.put(destPath, nodeData);
 			
 			// *** recurse ***
-			recursiveDirListing(dirClient, destPath, nodeData, childPathItems);
+			recurseOnMissingDirChildItems(dirClient, destPath, nodeData, childPathItems);
 			
 		} else { // file
 			val nodeData = filePathItemToNodeData(pathItem, name);
@@ -205,7 +215,7 @@ public abstract class AzRecursiveListingToTree {
 		// val childDirClient = parentDirClient.getSubdirectoryClient(name.toText());
 
 		// *** az query listPaths ***
-		List<PathItem> childPathItems = AzDatalakeStoreUtils.retryableAzQueryListPaths(dirClient, maxRetry);
+		List<PathItem> childPathItems = AzDatalakeStoreUtils.retryableAzQueryListPaths(dirClient, maxRetryAzQueryListPath);
 			
 		val childNames = pathItemsToChildNames(childPathItems);
 		
