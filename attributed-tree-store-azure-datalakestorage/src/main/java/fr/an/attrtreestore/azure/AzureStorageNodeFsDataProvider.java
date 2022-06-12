@@ -1,7 +1,6 @@
 package fr.an.attrtreestore.azure;
 
 import java.time.Duration;
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
@@ -114,8 +113,8 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
         }
 
         val name = (path.pathElementCount() > 0)? path.lastName() : DefaultNodeNameEncoderOptions.EMPTY_NAME;
-        long creationTime = toMillis(azPathProps.getCreationTime());
-        long lastModifiedTime = toMillis(azPathProps.getLastModified());
+        long creationTime = AzDatalakeStoreUtils.toMillis(azPathProps.getCreationTime());
+        long lastModifiedTime = AzDatalakeStoreUtils.toMillis(azPathProps.getLastModified());
         val extraFsAttrs = ImmutableMap.<String,Object>of(
                 // TOADD?
                 );
@@ -172,7 +171,7 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
 
                 if (retryCount + 1 < maxRetry) {
                     log.error("Failed az query listPaths: " + displayName + " " + path + " .. retry [" + retryCount + "/" + maxRetry + "] ex:" + ex.getMessage());
-                    sleepAfterNRetry(retryCount);
+                    AzDatalakeStoreUtils.sleepAfterNRetry(retryCount);
                 } else {
                     log.error("Failed az query listPaths: " + displayName + " " + path + " .. rethrow " + ex.getMessage());
                     throw ex;
@@ -182,14 +181,6 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
         return res;
     }
 
-	
-    private void sleepAfterNRetry(int retryCount) {
-        try {
-            Thread.sleep(500 + retryCount * 1000);
-        } catch (InterruptedException e) {
-        }
-    }
-    
     private DataLakeDirectoryClient dirClientForPath(String path) {
         if (path == null || path.isEmpty() || path.equals("/")) {
             // return fileSystemClient.getDirectoryClient("/");
@@ -213,7 +204,7 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
     private NodeFsData filePathItemToIncompleteFsData(NodeNamesPath path, PathItem src, long refreshTimeMillis) {
         if (src.isDirectory()) throw new IllegalStateException();
         val name = path.lastNameOrEmpty();
-        long lastModified = toMillis(src.getLastModified());
+        long lastModified = AzDatalakeStoreUtils.toMillis(src.getLastModified());
         val fileLength = src.getContentLength();
         // ignored fields available:
         //      String eTag;
@@ -234,7 +225,7 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
     		TreeSet<NodeName> childNames) {
         if (src.isDirectory()) throw new IllegalStateException();
         val name = path.lastNameOrEmpty();
-        long lastModified = toMillis(src.getLastModified());
+        long lastModified = AzDatalakeStoreUtils.toMillis(src.getLastModified());
         // ignored fields available:
         //      String eTag;
         //      String group;
@@ -250,13 +241,6 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
         return new DirNodeFsData(name, creationTime, lastModified, extraFsAttrs, childNames);        
     }
     
-    private static long toMillis(OffsetDateTime src) {
-        if (src == null) {
-            return 0;
-        }
-        long res = src.toInstant().toEpochMilli();
-        return res;
-    }
     
 
     private List<PathItem> retryableAzQueryListPaths(String path, DataLakeDirectoryClient pathDirClient) {
@@ -282,7 +266,7 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
             } catch(RuntimeException ex) {
                 if (retryCount + 1 < maxRetry) {
                     log.error("Failed az query listPaths: " + displayName + " " + path + " .. retry [" + retryCount + "/" + maxRetry + "] ex:" + ex.getMessage());
-                    sleepAfterNRetry(retryCount);
+                    AzDatalakeStoreUtils.sleepAfterNRetry(retryCount);
                 } else {
                     log.error("Failed az query listPaths: " + displayName + " " + path + " .. rethrow " + ex.getMessage());
                     throw ex;
@@ -312,17 +296,8 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
 
 		val childNames = new TreeSet<NodeName>();
 		for(PathItem azChildPathItem : azChildPathItems) {
-		    val azChildPath = azChildPathItem.getName();
-		    
-		    String childFileName;
-		    int lastSlash = azChildPath.lastIndexOf('/');
-		    if (lastSlash == -1 || lastSlash == 0) {
-		        childFileName = azChildPath;
-		    } else {
-		        childFileName = (lastSlash < azChildPath.length())? azChildPath.substring(lastSlash+1) : "";
-		    }
-		    
-		    val childName = nodeNameEncoder.encode(childFileName);
+			String childFilename = AzDatalakeStoreUtils.pathItemToChildName(azChildPathItem);
+		    val childName = nodeNameEncoder.encode(childFilename);
 		    childNames.add(childName);
 		    
 		    if (childPrefetchCtx != null && !errorOnPrefetch) {
@@ -361,7 +336,7 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
 		} else { // isDirectory
 		    // TOADD... transfer partial az PathItem, so as to avoid next az getProperties() !!
 		    // => incomplete data to be loaded next with az listPath() only
-			long lastModifiedTime = toMillis(azPathItem.getLastModified());
+			long lastModifiedTime = AzDatalakeStoreUtils.toMillis(azPathItem.getLastModified());
 			// val childFsData = dirPathItemToIncompleteFsData(childPath, azChildPathItem, refreshChildTimeMillis);
 
 			val proposePathItem = new AzPrefetchProposedPathItem(this, prefetchFsCtx,

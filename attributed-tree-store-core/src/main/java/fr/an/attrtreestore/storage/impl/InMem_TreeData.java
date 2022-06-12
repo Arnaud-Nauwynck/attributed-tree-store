@@ -1,14 +1,14 @@
 package fr.an.attrtreestore.storage.impl;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.TreeMap;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import fr.an.attrtreestore.api.IReadTreeData;
 import fr.an.attrtreestore.api.IWriteTreeData;
@@ -35,10 +35,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTreeData {
 
-	private final FullInMemNodeEntry rootNode = new FullInMemNodeEntry(null, createEmptyRootData(), 0, 0L, 0L, new TreeMap<>());
+	@Getter
+	private final InMemNodeEntry rootNode = new InMemNodeEntry(null, createEmptyRootData(), 0, 0L, 0L, new TreeMap<>());
 
 	// @AllArgsConstructor
-	private static class FullInMemNodeEntry {
+	public static class InMemNodeEntry {
 		@Getter
 		final NodeName name;
 		
@@ -50,11 +51,11 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 		long recursiveDataLenSum; // computed from dataAndChildFilePosLen + recursively scan on sortedEntries 
 		long synthetisedDataFilePos; 
 
-		TreeMap<NodeName,FullInMemNodeEntry> sortedEntries;
+		TreeMap<NodeName,InMemNodeEntry> sortedEntries;
 		
 
-		public FullInMemNodeEntry(NodeName name, NodeData data, int dataAndChildFilePosLen, long recursiveDataLenSum,
-				long synthetisedDataFilePos, TreeMap<NodeName, FullInMemNodeEntry> sortedEntries) {
+		public InMemNodeEntry(NodeName name, NodeData data, int dataAndChildFilePosLen, long recursiveDataLenSum,
+				long synthetisedDataFilePos, TreeMap<NodeName, InMemNodeEntry> sortedEntries) {
 			this.name = name;
 			this.data = data;
 			this.dataAndChildFilePosLen = dataAndChildFilePosLen;
@@ -62,14 +63,45 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 			this.synthetisedDataFilePos = synthetisedDataFilePos;
 			this.sortedEntries = sortedEntries;
 		}
-		
-		FullInMemNodeEntry getChild(NodeName chldName) {
+
+		public InMemNodeEntry getEntry(NodeName chldName) {
 			if (sortedEntries == null) {
 				return null;
 			}
 			return sortedEntries.get(chldName);
 		}
 
+		public InMemNodeEntry addEntry(NodeData data) {
+			InMemNodeEntry res = getOrCreateEntry(data.name);
+			res.data = data;
+			return res;
+		}
+
+		public InMemNodeEntry getOrCreateEntry(NodeName pathElt) {
+			InMemNodeEntry res;
+			if (sortedEntries == null) {
+				sortedEntries = new TreeMap<>(); 
+			}
+			val found = sortedEntries.get(pathElt);
+			if (found != null) {
+				res = found;
+			} else {
+				// if allowAutoCreateParent... 
+				res = new InMemNodeEntry(pathElt, null, 0, 0L, 0L, null);
+				sortedEntries.put(pathElt, res);
+			}
+			return res;
+		}
+
+		public void removeEntry(NodeName childName) {
+			val removed = sortedEntries.remove(childName);
+			if (removed == null) {
+				// no child removed
+			} else {
+				// TOADD recursive mark child as deleted.. maybe help GC
+			}
+		}
+		
 		@Override
 		public String toString() {
 			return "FullInMemNodeEntry [" + name 
@@ -103,7 +135,7 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 
 	@Override
 	public NodeData get(NodeNamesPath path) {
-		FullInMemNodeEntry entry = resolveUpTo(path, path.pathElements.length);
+		InMemNodeEntry entry = resolveUpTo(path, path.pathElements.length);
 		if (entry == null) {
 			return null;
 		}
@@ -114,21 +146,10 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 	public void put(NodeNamesPath path, NodeData data) {
 		val pathElts = path.pathElements;
 		val pathEltCount = pathElts.length;
-		FullInMemNodeEntry currEntry = rootNode;
+		InMemNodeEntry currEntry = rootNode;
 		for(int i = 0; i < pathEltCount; i++) {
-			if (currEntry.sortedEntries == null) {
-				currEntry.sortedEntries = new TreeMap<>(); 
-			}
 			val pathElt = pathElts[i];
-			val foundChildEntry = currEntry.sortedEntries.get(pathElt);
-			if (foundChildEntry == null) {
-				// if allowAutoCreateParent... 
-				val newChildEntry = new FullInMemNodeEntry(pathElt, null, 0, 0L, 0L, null);
-				currEntry.sortedEntries.put(pathElt, newChildEntry);
-				currEntry = newChildEntry;
-			} else {
-				currEntry = foundChildEntry;
-			}
+			currEntry = currEntry.getOrCreateEntry(pathElt);
 		}
 		currEntry.data = data;
 	}
@@ -140,12 +161,7 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 			return; // ok: no child to remove
 		}
 		val childName = path.lastName();
-		val removed = parent.sortedEntries.remove(childName);
-		if (removed == null) {
-			// no child removed
-		} else {
-			// TOADD recursive mark child as deleted.. maybe help GC
-		}
+		parent.removeEntry(childName);
 	}
 
 	// additionnal specific 'api' (?) methods
@@ -160,37 +176,24 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 			put_root(data);
 			return;
 		}
-		FullInMemNodeEntry parent = resolveParent(path);
+		InMemNodeEntry parent = resolveParent(path);
 		if (parent == null) {
 			throw new IllegalArgumentException();
 		}
-		val childName = path.lastName();
-		val foundChildEntry = parent.getChild(childName);
-		if (foundChildEntry != null) {
-			// update data..
-			foundChildEntry.data = data;
-			
-			// TOADD... check remove child if not present in data.childNames
-		} else {
-			if (parent.sortedEntries == null) {
-				parent.sortedEntries = new TreeMap<>();
-			}
-			val newChildEntry = new FullInMemNodeEntry(childName, data, 0, 0L, 0L, null);
-			parent.sortedEntries.put(childName, newChildEntry);
-		}
+		parent.addEntry(data);
 	}
-	
-	public FullInMemNodeEntry resolveParent(NodeNamesPath path) {
+
+	public InMemNodeEntry resolveParent(NodeNamesPath path) {
 		val parentPathEltCount = path.pathElements.length - 1;
 		return resolveUpTo(path, parentPathEltCount);
 	}
 	
-	public FullInMemNodeEntry resolveUpTo(NodeNamesPath path, int pathEltCount) {
+	public InMemNodeEntry resolveUpTo(NodeNamesPath path, int pathEltCount) {
 		val pathElts = path.pathElements;
-		FullInMemNodeEntry currEntry = rootNode;
+		InMemNodeEntry currEntry = rootNode;
 		for(int i = 0; i < pathEltCount; i++) {
 			val pathElt = pathElts[i];
-			val foundChildEntry = currEntry.getChild(pathElt);
+			val foundChildEntry = currEntry.getEntry(pathElt);
 			if (foundChildEntry == null) {
 				return null; 
 			} else {
@@ -240,13 +243,13 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 	// ------------------------------------------------------------------------
 	
 	private void doRecursiveWriteNode(DataOutputStream out, NoFlushCountingOutputStream counting, IndexedBlobStorage_TreeNodeDataEncoder encoder,
-			FullInMemNodeEntry node) throws IOException {
+			InMemNodeEntry node) throws IOException {
 		val childNames = new ArrayList<>(node.data.childNames); // TOCHECK ensure sorted
 		val childCount = childNames.size();
 		long[] childDataFilePos = new long[childCount];
 		for(int i = 0; i < childCount; i++) {
 			val childName = childNames.get(i);
-			FullInMemNodeEntry childEntry = node.sortedEntries.get(childName);
+			InMemNodeEntry childEntry = node.sortedEntries.get(childName);
 			childDataFilePos[i] = childEntry.synthetisedDataFilePos;
 		}
 		
@@ -261,7 +264,7 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 		
 		for(int i = 0; i < childCount; i++) {
 			val childName = childNames.get(i);
-			FullInMemNodeEntry childEntry = node.sortedEntries.get(childName);
+			InMemNodeEntry childEntry = node.sortedEntries.get(childName);
 			// *** recurse ***
 			doRecursiveWriteNode(out, counting, encoder, childEntry);
 		}
@@ -280,7 +283,7 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 			this.out = new DataOutputStream(countingOutput);
 		}
 
-		public int computeLen_nodeDataAndChildIndexes(FullInMemNodeEntry node) {
+		public int computeLen_nodeDataAndChildIndexes(InMemNodeEntry node) {
 			countingOutput.resetCount();
 			try {
 				encoder.writeNodeDataAndChildIndexes(out, node.data, EMPTY_LONG_ARRAY); // => attrDataEncoderHelper.writeNodeData_noName(out, nodeData); .. no check filePos
@@ -293,7 +296,7 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 
 	}
 	
-	private void doRecursiveComputeDataLen(FullInMemNodeEntry node, RecomputeDataLenHelper computeHelper) {
+	private void doRecursiveComputeDataLen(InMemNodeEntry node, RecomputeDataLenHelper computeHelper) {
 		node.dataAndChildFilePosLen = computeHelper.computeLen_nodeDataAndChildIndexes(node);
 
 		int childSum = 0;
@@ -307,7 +310,7 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 		node.recursiveDataLenSum = childSum;
 	}
 
-	private long doRecursiveComputeFilePos(FullInMemNodeEntry node, long startPos) {
+	private long doRecursiveComputeFilePos(InMemNodeEntry node, long startPos) {
 		long currPos = startPos;
 		node.synthetisedDataFilePos = startPos;
 		currPos += node.dataAndChildFilePosLen;
