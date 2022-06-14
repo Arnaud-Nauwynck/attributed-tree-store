@@ -279,15 +279,11 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 	
 	private void doRecursiveWriteNode(DataOutputStream out, NoFlushCountingOutputStream counting, IndexedBlobStorage_TreeNodeDataEncoder encoder,
 			InMemNodeEntry node) throws IOException {
-		val childNames = new ArrayList<>(node.data.childNames); // TOCHECK ensure sorted
-		val childCount = childNames.size();
+	    List<InMemNodeEntry> sortedEntries = (node.sortedEntries != null)? new ArrayList<InMemNodeEntry>(node.sortedEntries.values()) : new ArrayList<>();
+        val childCount = (sortedEntries != null)? sortedEntries.size() : 0;
 		long[] childDataFilePos = new long[childCount];
 		for(int i = 0; i < childCount; i++) {
-			val childName = childNames.get(i);
-			if (node.sortedEntries == null) {
-			    continue; // ??
-			}
-			InMemNodeEntry childEntry = node.sortedEntries.get(childName);
+			InMemNodeEntry childEntry = sortedEntries.get(i);
 			childDataFilePos[i] = childEntry.synthetisedDataFilePos;
 		}
 		
@@ -301,8 +297,7 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 		encoder.writeNodeDataAndChildIndexes(out, node.data, childDataFilePos);
 		
 		for(int i = 0; i < childCount; i++) {
-			val childName = childNames.get(i);
-			InMemNodeEntry childEntry = node.sortedEntries.get(childName);
+			InMemNodeEntry childEntry = sortedEntries.get(i);
 			// *** recurse ***
 			doRecursiveWriteNode(out, counting, encoder, childEntry);
 		}
@@ -329,7 +324,8 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 				throw new RuntimeException("should not occur", ex);
 			}
 			val dataLen = (int) countingOutput.getCount();
-			return dataLen + 8 * node.data.childNames.size();
+			int childCount = (node.sortedEntries != null)? node.sortedEntries.size() : 0;
+			return dataLen + 8 * childCount;
 		}
 
 	}

@@ -1,5 +1,9 @@
 package fr.an.attrtreestore.api;
 
+import java.util.Collection;
+
+import lombok.val;
+
 public interface IWriteTreeData extends IReadTreeData { // TOADD should not extends interface IReadTreeData... but when not available, simply throw ex
 
 	// TODO ... need to provide function to fill intermediate unknown nodes..
@@ -11,6 +15,22 @@ public interface IWriteTreeData extends IReadTreeData { // TOADD should not exte
 	public void put(NodeNamesPath path, NodeData data);
 	
 	public void remove(NodeNamesPath path);
+
+	// should override for optims
+	default public void putWithChild(NodeNamesPath path, NodeData data, Collection<NodeData> childDatas) {
+	    put(path, data);
+	    for(val childData: childDatas) {
+	        val childPath = path.toChild(childData.name); 
+	        put(childPath, childData);	        
+	    }
+	}
+	
+	default public void putChildList(NodeNamesPath parentPath, Collection<NodeData> childDatas) {
+    	for(val childData: childDatas) {
+            val childPath = parentPath.toChild(childData.name);
+            put(childPath, childData);
+        }
+	}
 
 	
 	public default void put_transientFieldsChanged(NodeNamesPath path, NodeData data) {

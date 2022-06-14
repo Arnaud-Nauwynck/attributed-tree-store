@@ -22,9 +22,11 @@ public abstract class CachedImage_TreeData<TCacheStorageTreeData extends TreeDat
 	 * => so preferrably use 'NodeData get(NodeNamesPath path, PrefetchOtherNodeDataCallback optCallback)'
 	 * rather than 'NodeData get(NodeNamesPath path)'
 	 */
+	@Getter
 	protected final TreeData underlyingTree;
 	protected final IPrefetchReadTreeDataSupport underlyingTree_supportsPrefetchOther; 
 	
+	@Getter
 	protected final TCacheStorageTreeData cachedTree;
 	protected final IInMemCacheReadTreeData cachedTree_supportsInMemCached; // = null or (ICacheReadTreeData)cachedTree
 	

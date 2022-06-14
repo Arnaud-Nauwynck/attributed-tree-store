@@ -7,9 +7,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.TreeSet;
 
 import fr.an.attrtreestore.api.IWriteTreeData;
@@ -29,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
  * 
  */
 @Slf4j
+@Deprecated // cf AzAsyncRecursiveListingToTree
 public class AzRecursiveListingToTree {
 
     protected final NodeNameEncoder nameEncoder;
@@ -64,9 +65,11 @@ public class AzRecursiveListingToTree {
 	    val startTime = System.currentTimeMillis();
 	    
 	    this.interrupt = false;
-	    
-		// String azDirPath = srcBaseDir.getDirectoryName();
-		NodeData nodeData = destTree.get(destBasePath);
+
+	    val foundChildDatas = new HashMap<NodeName,NodeData>();
+	    val notFoundChildNames = new ArrayList<NodeName>();   
+
+		NodeData nodeData = destTree.getWithChild(destBasePath, foundChildDatas, notFoundChildNames);
 		
 		// check if already loaded (TOADD handle expired time)
 		List<PathItem> optChildPathItems;
@@ -82,12 +85,17 @@ public class AzRecursiveListingToTree {
 			nodeData = dirPropsAndPathItemsToNodeData(name, pathProps, pathItems);
 			destTree.put(destBasePath, nodeData);
 
+			notFoundChildNames.addAll(AzDatalakeStoreUtils.pathItemsToChildNames(pathItems, nameEncoder));
+			
 			optChildPathItems = pathItems;
 		} else {
 			optChildPathItems = null;
 		}
 		
-		recurseOnMissingDirChildItems(srcBaseDir, destBasePath, nodeData, optChildPathItems);
+        // TOCHECK recurse handle only missing Dirs, not Files
+		
+        
+		recurseOnMissingDirChildItems(srcBaseDir, destBasePath, nodeData, foundChildDatas, notFoundChildNames, optChildPathItems);
 
 		val millis = System.currentTimeMillis() - startTime;
 		log.info(".. done executeListing, took " + millis + " ms");
@@ -96,7 +104,9 @@ public class AzRecursiveListingToTree {
 	protected void recurseOnMissingDirChildItems(
 			DataLakeDirectoryClient dirClient,
 			NodeNamesPath destPath,
-			NodeData nodeData,
+			NodeData nodeData, // ensure alreay put in tree, and obtained by getWithChild()
+			Map<NodeName,NodeData> foundChildDatas, // cf getWithChild()
+	        List<NodeName> notFoundChildNames,	 // cf getWithChild()	
 			List<PathItem> optChildPathItems // may be null, will re-query
 			) {
 	    if (this.interrupt) {
@@ -108,52 +118,60 @@ public class AzRecursiveListingToTree {
 		if (childNames == null || childNames.isEmpty()) {
 			return;
 		}
-		List<NodeData> foundChildDatas = new ArrayList<>(childNames.size());
-		Set<NodeName> notFoundChildNames = new HashSet<>();
-		for(val childName: childNames) {
-			val childPath = destPath.toChild(childName);
-			val found = destTree.get(childPath);
-			if (found != null) {
-				foundChildDatas.add(found);
-			} else {
-				notFoundChildNames.add(childName);
-			}
-		}
 		
 		if (! foundChildDatas.isEmpty()) {
 			// all child found in tree, can recurse without az query
-			for(val foundChildData: foundChildDatas) {
+			for(val foundChildData: foundChildDatas.values()) {
 				val childName = foundChildData.name;
 				val childPath = destPath.toChild(childName);
 				if (foundChildData.type == NodeData.TYPE_DIR) {
+				    // re-query for sub-child
+				    val foundSubChildDatas = new HashMap<NodeName,NodeData>(); 
+				    val notFoundSubChildNames = new ArrayList<NodeName>();   
+				    val childData = destTree.getWithChild(childPath, foundSubChildDatas, notFoundSubChildNames);
+				    if (childData != foundChildData) {
+				        // should not occur
+				    }
+				    
 					val childDirClient = dirClient.getSubdirectoryClient(childName.toText());
 					// *** recurse ***
-					recurseOnMissingDirChildItems(childDirClient, childPath, foundChildData, null);
+					recurseOnMissingDirChildItems(childDirClient, childPath, 
+					        childData, foundSubChildDatas, notFoundSubChildNames,
+					        null);
 				} // else ignore already found file NodeData
 			}
 	    }
 
 		if (! notFoundChildNames.isEmpty()) {
 			// need az query getProperties() or listPaths()
-			// ** az query listPaths **
-			val childPathItems = AzDatalakeStoreUtils.retryableAzQueryListPaths(dirClient, azQueryListPathCounter, maxRetryAzQueryListPath);
-			
-			val childToRecurse = new ArrayList<PathItemAndNodeName>(notFoundChildNames.size());
+		    
+		    List<PathItem> childPathItems;
+		    if (optChildPathItems != null) {
+		        childPathItems = optChildPathItems;
+		    } else {
+		        // ** az query listPaths **
+		        childPathItems = AzDatalakeStoreUtils.retryableAzQueryListPaths(dirClient, azQueryListPathCounter, maxRetryAzQueryListPath);
+		    
+		        // TODO immediate put Dir ???
+		        // instead of after child
+		    }
+		    
+			val childSubDirToRecurse = new ArrayList<PathItemAndNodeName>(notFoundChildNames.size());
 			for(val childPathItem: childPathItems) {
 				val childFilename = AzDatalakeStoreUtils.pathItemToChildName(childPathItem);
 				val childName = nameEncoder.encode(childFilename);
 				if (notFoundChildNames.contains(childName)) {
 				    if (childPathItem.isDirectory()) {
-				        childToRecurse.add(new PathItemAndNodeName(childPathItem, childName));
+				        childSubDirToRecurse.add(new PathItemAndNodeName(childPathItem, childName));
 				    } else {
-				        // immediate hande.. no recurse
+				        // immediate hande File.. no recurse
 				        val childNodeData = filePathItemToNodeData(childPathItem, childName);
 				        val childPath = destPath.toChild(childName);
 			            destTree.put(childPath, childNodeData);
 				    }
 				}
 			}
-			putChildPathItemList_recurseOnMissingDirChildItems(dirClient, destPath, childToRecurse);
+			putChildPathItemList_recurseOnMissingDirChildItems(dirClient, destPath, childSubDirToRecurse);
 		}
 	}
 
@@ -198,10 +216,30 @@ public class AzRecursiveListingToTree {
 			NodeData nodeData = nodeDataAndPathItems.nodeData;
 			List<PathItem> childPathItems = nodeDataAndPathItems.childPathItems;
 			
-			destTree.put(destPath, nodeData);
+			Map<NodeName,NodeData> foundChildDatas = new HashMap<>();
+			List<NodeName> notFoundChildNames = new ArrayList<>();
+			List<NodeData> childNodeDatas = new ArrayList<>();
+			for(val childPathItem: childPathItems) {
+			    val childName = AzDatalakeStoreUtils.pathItemToChildName(childPathItem, nameEncoder);
+			    if (childPathItem.isDirectory()) {
+			        notFoundChildNames.add(childName);
+			    } else {
+			        val childNodeData = filePathItemToNodeData(childPathItem, childName);
+			        childNodeDatas.add(childNodeData);
+			        foundChildDatas.put(childName, childNodeData);
+			    }
+			}
 			
-			// *** recurse ***
-			recurseOnMissingDirChildItems(dirClient, destPath, nodeData, childPathItems);
+			// put directory
+			// also immediate put child Files .. ( use 1 call optims for data + immediate child )
+			destTree.putWithChild(destPath, nodeData, childNodeDatas);
+			
+			if (interrupt) {
+			    return;
+			}
+			
+			// *** recurse on child sub-dirs ***
+			recurseOnMissingDirChildItems(dirClient, destPath, nodeData, foundChildDatas, notFoundChildNames, childPathItems);
 			
 		} else { // file
 			val nodeData = filePathItemToNodeData(pathItem, name);

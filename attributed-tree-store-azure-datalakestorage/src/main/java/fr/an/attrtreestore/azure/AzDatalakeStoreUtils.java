@@ -1,6 +1,7 @@
 package fr.an.attrtreestore.azure;
 
 import com.azure.core.http.rest.PagedIterable;
+import com.azure.storage.file.datalake.DataLakeDirectoryAsyncClient;
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
 import com.azure.storage.file.datalake.models.PathItem;
 
@@ -9,7 +10,10 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import fr.an.attrtreestore.api.NodeName;
+import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.util.LoggingCounter;
+import lombok.val;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -27,6 +31,53 @@ public class AzDatalakeStoreUtils {
 	    return res;
 	}
 
+	public static NodeName pathItemToChildName(PathItem pathItem, NodeNameEncoder nameEncoder) {
+	    String fileName = pathItemToChildName(pathItem);
+	    return nameEncoder.encode(fileName);
+	}
+
+	public static List<NodeName> pathItemsToChildNames(List<PathItem> pathItems, NodeNameEncoder nameEncoder) {
+       val res = new ArrayList<NodeName>(pathItems.size()); 
+       for(val childPathItem: pathItems) {
+            val childName = pathItemToChildName(childPathItem, nameEncoder);
+            res.add(childName);
+       }
+       return res;
+	}
+   
+	@Deprecated // async->blocking api !!
+	public static List<PathItem> blocking_retryableAzQueryListPaths(DataLakeDirectoryAsyncClient dirClient, LoggingCounter counter, int maxRetry) {
+        List<PathItem> res;
+        int retryCount = 0;
+        for(;; retryCount++) {
+            try {
+                long startTime = System.currentTimeMillis();
+                
+                // *** az query listPaths (first page) ***
+                val asyncPathsRes = dirClient.listPaths(false, false, null); 
+                PagedIterable<PathItem> pathItemsIterable = new PagedIterable<>(asyncPathsRes); // async->blocking api !!
+                res = new ArrayList<>();
+                for(PathItem azChildPathItem : pathItemsIterable) { // *** az query list more page ***
+                    res.add(azChildPathItem);
+                }
+                
+                long millis = System.currentTimeMillis() - startTime;
+                counter.incr(millis, msgPrefix -> log.info(msgPrefix + " " + dirClient.getDirectoryPath()));
+                
+                break;
+            } catch(RuntimeException ex) {
+                if (retryCount + 1 < maxRetry) {
+                    log.error("Failed az query listPaths: " + dirClient.getDirectoryUrl() + " .. retry [" + retryCount + "/" + maxRetry + "] ex:" + ex.getMessage());
+                    sleepAfterNRetry(retryCount);
+                } else {
+                    log.error("Failed az query listPaths: " + dirClient.getDirectoryUrl() + " .. rethrow " + ex.getMessage());
+                    throw ex;
+                }
+            }
+        }
+        return res;
+    }
+	
 	public static List<PathItem> retryableAzQueryListPaths(DataLakeDirectoryClient dirClient, LoggingCounter counter, int maxRetry) {
         List<PathItem> res;
         int retryCount = 0;

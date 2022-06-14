@@ -110,6 +110,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	
 	private OutputStream currWriteStream;
 
+	private boolean useWriterThread = false;
 	private final LinkedBlockingQueue<byte[]> writeQueue = new LinkedBlockingQueue<byte[]>(); 
 	private final Object writerNotifyLock = new Object();
 	
@@ -161,7 +162,8 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 			this.currWriteStream = blobStorage.openWrite(fileName, true);
 			// TOCHECK seek to last checkpoint flushed pos... 
 			
-			this.writerThread = writeThreadFactory.newThread(() -> writeLoop());
+//			this.writerThread = writeThreadFactory.newThread(() -> writeLoop());
+//			this.writerThread.start();
 		}
 	}
 
@@ -169,29 +171,31 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	public void flushStopWrite() {
 		synchronized(writeLock) {
 			if (currWriteStream != null) {
-				// TODO wait empty writeQueue!
-				synchronized (writerNotifyLock) {
-					writerNotifyLock.notify();
-				}
-				// wait queue is empty
-				if (! writeQueue.isEmpty()) {
-					for(;;) {
-						if (writeQueue.isEmpty()) {
-							break;
-						}
-						safeSleep(200);
-					}
-
-					safeSleep(200);
-				}
-				// wait writerThread as written + flushed all
-				for(;;) {
-					if (this.writerStopped) {
-						break;
-					}
-					safeSleep(200);
-				}
-				
+			    if (useWriterThread) {
+    				// wait empty writeQueue!
+    				synchronized (writerNotifyLock) {
+    					writerNotifyLock.notify();
+    				}
+    				// wait queue is empty
+    				if (! writeQueue.isEmpty()) {
+    					for(;;) {
+    						if (writeQueue.isEmpty()) {
+    							break;
+    						}
+    						safeSleep(200);
+    					}
+    
+    					safeSleep(200);
+    				}
+    				// wait writerThread as written + flushed all
+    				for(;;) {
+    					if (this.writerStopped) {
+    						break;
+    					}
+    					safeSleep(200);
+    				}
+			    }
+			    
 				try {
 					currWriteStream.close();
 				} catch (IOException ex) {
@@ -208,7 +212,6 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 		} catch (InterruptedException e) {
 		}
 	}
-
 
 
 	// implements PartialOverrideTreeData (read part)
@@ -648,13 +651,30 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 		// ... this.blobStorage.writeAppendToFile(fileName, filePart);
 		ensureOpenWrite();
 		
-		writeQueue.add(data);
-		
-		this.currFilePos += data.length; // not writen/flushed yet
-		
-		synchronized(writerNotifyLock) {
-			writerNotifyLock.notify();
+		if (useWriterThread) {
+		    // write using enqueue, then async write in writerThread
+    		writeQueue.add(data);
+    		
+    		this.currFilePos += data.length; // not writen/flushed yet
+    		
+    		synchronized(writerNotifyLock) {
+    			writerNotifyLock.notify();
+    		}
+		} else {
+		    // simple write
+		    try {
+                this.currWriteStream.write(data);
+            } catch (IOException ex) {
+                throw new RuntimeException("Failed to write wal " + fileName, ex);
+                // TODO notify parent owner, maybe roll wal
+            }
+    		try {
+    		    this.currWriteStream.flush();
+    		} catch (IOException ex) {
+    		    throw new RuntimeException("Failed to flush wal " + fileName, ex);
+    		}
 		}
+		
 	}
 
 	private void writeLoop() {

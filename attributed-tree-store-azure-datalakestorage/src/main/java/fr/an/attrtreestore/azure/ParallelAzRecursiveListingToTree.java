@@ -1,13 +1,19 @@
 package fr.an.attrtreestore.azure;
 
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
+import com.azure.storage.file.datalake.models.PathItem;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import fr.an.attrtreestore.api.IWriteTreeData;
+import fr.an.attrtreestore.api.NodeData;
+import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.util.LoggingCounter;
@@ -17,6 +23,7 @@ import lombok.val;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
+@Deprecated // cf AsyncParallelAzRecursiveListingToTree
 public class ParallelAzRecursiveListingToTree extends AzRecursiveListingToTree {
 
     private ExecutorService executorService;
@@ -26,10 +33,10 @@ public class ParallelAzRecursiveListingToTree extends AzRecursiveListingToTree {
     
     @Getter
     protected LoggingCounter totalSubmittedTaskCount = new LoggingCounter("submitted missing PathItem task", 
-            new LoggingCounterParams(1_000_000, 10_000)); 
+            new LoggingCounterParams(1_000_000, 600_000)); 
     @Getter
     protected LoggingCounter totalProcessedTaskCount = new LoggingCounter("processed missing PathItem task",
-            new LoggingCounterParams(1_000_000, 10_000)); 
+            new LoggingCounterParams(1_000_000, 600_000)); 
 
     // --------------------------------------------------------------------------------------------
 
@@ -131,6 +138,59 @@ public class ParallelAzRecursiveListingToTree extends AzRecursiveListingToTree {
         totalProcessedTaskCount.incr(millis, prefix -> log.info(prefix + " " + childPath));
         
         submittedTaskCount.decrementAndGet();
+    }
+    
+    /**
+     * override to use Async api
+     */
+    @Override
+    protected void putPathItem_recurseOnMissingDirChildItems(
+            PathItem pathItem,
+            NodeNamesPath destPath,
+            DataLakeDirectoryClient parentDirClient
+            ) {
+        val name = destPath.lastNameOrEmpty();
+        if (!pathItem.isDirectory()) {
+            // should not occur?
+            val nodeData = filePathItemToNodeData(pathItem, name);
+            destTree.put(destPath, nodeData);
+            return;
+        }
+        
+    
+        val dirClient = parentDirClient.getSubdirectoryClient(name.toText());
+        
+        // ** ASYNC az query listPath **
+        val nodeDataAndPathItems = dirPathItemToNodeData(pathItem, name, dirClient);
+        
+        NodeData nodeData = nodeDataAndPathItems.nodeData;
+        List<PathItem> childPathItems = nodeDataAndPathItems.childPathItems;
+        
+        Map<NodeName,NodeData> foundChildDatas = new HashMap<>();
+        List<NodeName> notFoundChildNames = new ArrayList<>();
+        List<NodeData> childNodeDatas = new ArrayList<>();
+        for(val childPathItem: childPathItems) {
+            val childName = AzDatalakeStoreUtils.pathItemToChildName(childPathItem, nameEncoder);
+            if (childPathItem.isDirectory()) {
+                notFoundChildNames.add(childName);
+            } else {
+                val childNodeData = filePathItemToNodeData(childPathItem, childName);
+                childNodeDatas.add(childNodeData);
+                foundChildDatas.put(childName, childNodeData);
+            }
+        }
+        
+        // put directory
+        // also immediate put child Files .. ( use 1 call optims for data + immediate child )
+        destTree.putWithChild(destPath, nodeData, childNodeDatas);
+        
+        if (interrupt) {
+            return;
+        }
+        
+        // *** recurse on child sub-dirs ***
+        recurseOnMissingDirChildItems(dirClient, destPath, nodeData, foundChildDatas, notFoundChildNames, childPathItems);
+            
     }
     
 }
