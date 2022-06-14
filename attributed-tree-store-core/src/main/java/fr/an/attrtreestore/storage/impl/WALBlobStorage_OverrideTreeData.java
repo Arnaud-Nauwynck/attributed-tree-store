@@ -183,7 +183,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 			val pathElt = pathElts[i];
 			val foundChild = currEntry.child.get(pathElt);
 			if (foundChild == null) {
-				return OverrideNodeData.NOT_OVERRIDEN; 
+				return OverrideNodeData.NOT_OVERRIDEN;
 			} else if (foundChild.overrideStatus == OverrideNodeStatus.DELETED) {
 				return OverrideNodeData.DELETED; 
 			}
@@ -214,7 +214,8 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 		    if (currEntry == rootEntry) {     
 		        return null; // ?
     		} else {
-    			throw new IllegalStateException(); // should not occur
+    		    return null; // ?
+    			// throw new IllegalStateException(); // should not occur
     		}
 		}
 	}

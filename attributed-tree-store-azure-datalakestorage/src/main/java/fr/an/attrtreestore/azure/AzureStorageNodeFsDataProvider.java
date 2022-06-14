@@ -1,17 +1,16 @@
 package fr.an.attrtreestore.azure;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.TreeSet;
-
 import com.azure.core.http.rest.PagedIterable;
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
-import com.azure.storage.file.datalake.DataLakeFileSystemClient;
 import com.azure.storage.file.datalake.models.DataLakeStorageException;
 import com.azure.storage.file.datalake.models.PathItem;
 import com.azure.storage.file.datalake.models.PathProperties;
 import com.google.common.collect.ImmutableMap;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.TreeSet;
 
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
@@ -39,11 +38,8 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
     private final String displayBaseUrl;
     
     // protected final AzSpnIdentityParams identityParam; ... implicit from fileSystemClient and baseDirClient  
-    private final DataLakeFileSystemClient fileSystemClient;
     private final DataLakeDirectoryClient baseDirClient;
 
-    private final String fsSubDirPath;
-    
     private final NodeNameEncoder nodeNameEncoder;
     
     protected final LoggingCounter azPathGetProps_Counter = new LoggingCounter("az path.getProps");
@@ -83,16 +79,12 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
     
     public AzureStorageNodeFsDataProvider(
             String displayName, String displayBaseUrl, //
-            DataLakeFileSystemClient fileSystemClient,
             DataLakeDirectoryClient baseDirClient,
-            String fsSubDirPath,
             NodeNameEncoder nodeNameEncoder
             ) {
         this.displayName = displayName;
         this.displayBaseUrl = displayBaseUrl;
-        this.fileSystemClient = fileSystemClient;
         this.baseDirClient = baseDirClient;
-        this.fsSubDirPath = fsSubDirPath;
         this.nodeNameEncoder = nodeNameEncoder;
     }
     
@@ -105,7 +97,7 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
         DataLakeDirectoryClient pathDirClient = dirClientForPath(pathSlash);
 
         PathProperties azPathProps;
-        if (fsSubDirPath.isEmpty() && (pathSlash.equals("") || pathSlash.equals("/"))) {
+        if (pathSlash.equals("") || pathSlash.equals("/")) {
             // querying base dir (maybe root filesystem?)
             azPathProps = doRetryableAzQueryPathProperties(pathSlash, pathDirClient);
         } else {
@@ -135,7 +127,7 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
         return res;
     }
 
-    private PathProperties doRetryableAzQueryPathProperties(String path, DataLakeDirectoryClient pathDirClient) {
+    private PathProperties doRetryableAzQueryPathProperties(String displayPath, DataLakeDirectoryClient pathDirClient) {
         PathProperties res;
         int retryCount = 0;
         for(;; retryCount++) {
@@ -146,7 +138,7 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
                 res = pathDirClient.getProperties();
                 
                 val millis = System.currentTimeMillis() - now;
-                azPathGetProps_Counter.incr(millis, prefix -> log.info(prefix + " " + path));
+                azPathGetProps_Counter.incr(millis, prefix -> log.info(prefix + " " + displayPath));
                 break;
                 
             } catch(Exception ex) {
@@ -170,10 +162,10 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
                 }
 
                 if (retryCount + 1 < maxRetry) {
-                    log.error("Failed az query listPaths: " + displayName + " " + path + " .. retry [" + retryCount + "/" + maxRetry + "] ex:" + ex.getMessage());
+                    log.error("Failed az query listPaths: " + displayName + " " + displayPath + " .. retry [" + retryCount + "/" + maxRetry + "] ex:" + ex.getMessage());
                     AzDatalakeStoreUtils.sleepAfterNRetry(retryCount);
                 } else {
-                    log.error("Failed az query listPaths: " + displayName + " " + path + " .. rethrow " + ex.getMessage());
+                    log.error("Failed az query listPaths: " + displayName + " " + displayPath + " .. rethrow " + ex.getMessage());
                     throw ex;
                 }
             }
@@ -183,22 +175,11 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
 
     private DataLakeDirectoryClient dirClientForPath(String path) {
         if (path == null || path.isEmpty() || path.equals("/")) {
-            // return fileSystemClient.getDirectoryClient("/");
-            return baseDirClient.getSubdirectoryClient("/");
+            return baseDirClient;
         }
         String relPath = (path.startsWith("/"))? path.substring(1) : path; 
-        boolean debug = true;
-        if (debug) {
-            String fsPath = ((fsSubDirPath.isEmpty())? "" : fsSubDirPath + "/") + relPath;
-            if (fsPath.isEmpty()) {
-                fsPath = "/";
-            }
-            val res = fileSystemClient.getDirectoryClient(fsPath);
-            return res;
-        } else {
-            val res = baseDirClient.getSubdirectoryClient(path);
-            return res;
-        }        
+        val res = baseDirClient.getSubdirectoryClient(relPath);
+        return res;
     }
     
     private NodeFsData filePathItemToIncompleteFsData(NodeNamesPath path, PathItem src, long refreshTimeMillis) {

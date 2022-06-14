@@ -249,6 +249,9 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 		long[] childDataFilePos = new long[childCount];
 		for(int i = 0; i < childCount; i++) {
 			val childName = childNames.get(i);
+			if (node.sortedEntries == null) {
+			    continue; // ??
+			}
 			InMemNodeEntry childEntry = node.sortedEntries.get(childName);
 			childDataFilePos[i] = childEntry.synthetisedDataFilePos;
 		}

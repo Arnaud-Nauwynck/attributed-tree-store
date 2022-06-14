@@ -4,7 +4,7 @@ import java.util.concurrent.ThreadFactory;
 
 import lombok.val;
 
-public class DefaultNamedTreadFactory implements ThreadFactory {
+public class DefaultNamedThreadFactory implements ThreadFactory {
 	
 	private final String namePrefix;
 	private final String nameSuffix;
@@ -14,7 +14,7 @@ public class DefaultNamedTreadFactory implements ThreadFactory {
 
 	// ------------------------------------------------------------------------
 	
-	public DefaultNamedTreadFactory(String namePrefix, String nameSuffix, boolean isDaemon) {
+	public DefaultNamedThreadFactory(String namePrefix, String nameSuffix, boolean isDaemon) {
 		this.namePrefix = namePrefix;
 		this.nameSuffix = nameSuffix;
 		this.isDaemon = isDaemon;
@@ -23,12 +23,12 @@ public class DefaultNamedTreadFactory implements ThreadFactory {
 	// ------------------------------------------------------------------------
 
 	@Override
-	public Thread newThread(Runnable r) {
+	public Thread newThread(Runnable runnable) {
 		int threadNum;
 		synchronized(this) {
 			threadNum = threadNumSequence++;
 		}
-		val res = new Thread(namePrefix + threadNum + nameSuffix);
+		val res = new Thread(runnable, namePrefix + threadNum + nameSuffix);
 		res.setDaemon(isDaemon);
 		return res;
 	}

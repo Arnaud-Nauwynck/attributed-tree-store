@@ -125,7 +125,15 @@ public class PersistedTreeData extends TreeData implements IWriteTreeData, IInMe
 			for(val walFilename: manifest.sequenceWalFilenames) {
 				String walFile = baseDirname + "/" + walFilename;
 				val underlyingOverrideTree = new WALBlobStorage_OverrideTreeData(blobStorage, walFile, attrDataEncoderHelper);
-				underlyingOverrideTree.initReload();
+				if (blobStorage.exists(walFile)) {
+				    try {
+				        underlyingOverrideTree.initReload();
+				    } catch(Exception ex) {
+				        log.warn("Failed to reload override from wal file " + walFile + ".. ignore!!", ex);
+				    }
+				} else {
+				    underlyingOverrideTree.initCreateEmpty();
+				}
 				sequenceOverrideTrees.add(underlyingOverrideTree);
 			}
 

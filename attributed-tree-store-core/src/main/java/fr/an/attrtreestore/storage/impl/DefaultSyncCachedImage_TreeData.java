@@ -32,7 +32,7 @@ import fr.an.attrtreestore.api.readprefetch.LimitingPrefetchNodeDataContext.Pref
 import fr.an.attrtreestore.api.readprefetch.LimitingPrefetchNodeDataContext.PrefetchTimeLimit;
 import fr.an.attrtreestore.api.readprefetch.PrefetchNodeDataContext;
 import fr.an.attrtreestore.api.readprefetch.PrefetchProposedPathItem;
-import fr.an.attrtreestore.util.DefaultNamedTreadFactory;
+import fr.an.attrtreestore.util.DefaultNamedThreadFactory;
 import fr.an.attrtreestore.util.LoggingCounter;
 import lombok.Getter;
 import lombok.Setter;
@@ -150,8 +150,8 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 			) {
 		super(displayName, displayBaseUrl, underlyingTree, cachedTree);
 		
-		this.backgroundRefreshThreadFactory = new DefaultNamedTreadFactory("Background-Refresh-", " " + displayName, true);
-		this.backgroundChangeResolverThreadFactory = new DefaultNamedTreadFactory("Background-Change-Resolver-", " " + displayName, true);
+		this.backgroundRefreshThreadFactory = new DefaultNamedThreadFactory("Background-Refresh-", " " + displayName, true);
+		this.backgroundChangeResolverThreadFactory = new DefaultNamedThreadFactory("Background-Change-Resolver-", " " + displayName, true);
 	}
 
 	// implements Cached_TreeData 

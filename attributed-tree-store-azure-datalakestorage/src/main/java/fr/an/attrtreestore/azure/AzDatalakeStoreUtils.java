@@ -1,14 +1,15 @@
 package fr.an.attrtreestore.azure;
 
+import com.azure.core.http.rest.PagedIterable;
+import com.azure.storage.file.datalake.DataLakeDirectoryClient;
+import com.azure.storage.file.datalake.models.PathItem;
+
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.azure.core.http.rest.PagedIterable;
-import com.azure.storage.file.datalake.DataLakeDirectoryClient;
-import com.azure.storage.file.datalake.models.PathItem;
-
+import fr.an.attrtreestore.util.LoggingCounter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -26,19 +27,24 @@ public class AzDatalakeStoreUtils {
 	    return res;
 	}
 
-	public static List<PathItem> retryableAzQueryListPaths(DataLakeDirectoryClient dirClient, int maxRetry) {
+	public static List<PathItem> retryableAzQueryListPaths(DataLakeDirectoryClient dirClient, LoggingCounter counter, int maxRetry) {
         List<PathItem> res;
         int retryCount = 0;
         for(;; retryCount++) {
             try {
+                Duration timeout = Duration.ofMinutes(5);
+
+                long startTime = System.currentTimeMillis();
                 
                 // *** az query listPaths (first page) ***
-                Duration timeout = Duration.ofMinutes(5);
                 PagedIterable<PathItem> pathItemsIterable = dirClient.listPaths(false, false, null, timeout);
                 res = new ArrayList<>();
                 for(PathItem azChildPathItem : pathItemsIterable) { // *** az query list more page ***
                     res.add(azChildPathItem);
                 }
+                
+                long millis = System.currentTimeMillis() - startTime;
+                counter.incr(millis, msgPrefix -> log.info(msgPrefix + " " + dirClient.getDirectoryPath()));
                 
                 break;
             } catch(RuntimeException ex) {

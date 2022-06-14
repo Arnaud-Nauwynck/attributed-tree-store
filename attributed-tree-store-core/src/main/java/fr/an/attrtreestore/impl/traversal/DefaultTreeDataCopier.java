@@ -42,8 +42,10 @@ public class DefaultTreeDataCopier extends TreeDataCopier {
 	
 	public void recursiveCopy(NodeNamesPath currPath) {
 		val srcData = src.get(currPath);
-		assert srcData != null;
-		
+		if (srcData == null) {
+		    return;
+		}
+
 		val destData = copyDataFunc.apply(srcData);
 		dest.put(currPath, destData);
 
@@ -51,6 +53,7 @@ public class DefaultTreeDataCopier extends TreeDataCopier {
 		if ((srcChildNames != null && !srcChildNames.isEmpty())) {
 			for(val srcChildName: srcChildNames) {
 				val childPath = currPath.toChild(srcChildName);
+				
 				recursiveCopy(childPath);
 			}
 		}
