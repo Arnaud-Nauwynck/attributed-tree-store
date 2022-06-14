@@ -5,6 +5,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
 
 import com.google.common.collect.ImmutableMap;
@@ -64,11 +66,11 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 			this.sortedEntries = sortedEntries;
 		}
 
-		public InMemNodeEntry getEntry(NodeName chldName) {
+		public InMemNodeEntry getEntry(NodeName chlidName) {
 			if (sortedEntries == null) {
 				return null;
 			}
-			return sortedEntries.get(chldName);
+			return sortedEntries.get(chlidName);
 		}
 
 		public InMemNodeEntry addEntry(NodeData data) {
@@ -142,6 +144,39 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 		return entry.data;
 	}
 
+	@Override
+	public NodeData getWithChild(NodeNamesPath path,
+			Map<NodeName,NodeData> foundChildMap,
+			List<NodeName> notFoundChildLs) {
+		InMemNodeEntry entry = resolveUpTo(path, path.pathElements.length);
+		if (entry == null) {
+			return null;
+		}
+		NodeData res = entry.data;
+		if (res == null) {
+			return null;
+		}
+		val childNames = res.childNames;
+		if (childNames != null && ! childNames.isEmpty()) {
+			val sortedEntries = entry.sortedEntries;
+			if (sortedEntries == null) {
+				notFoundChildLs.addAll(childNames);
+			} else {
+				for(val childName: childNames) {
+					val childEntry = sortedEntries.get(childName);
+					val childData = (childEntry != null)? childEntry.data : null;
+					if (childData != null) {
+						foundChildMap.put(childName, childData);
+					} else {
+						notFoundChildLs.add(childName);
+					}
+				}
+			}
+		}
+		return entry.data;
+	}
+
+	
 	@Override
 	public void put(NodeNamesPath path, NodeData data) {
 		val pathElts = path.pathElements;

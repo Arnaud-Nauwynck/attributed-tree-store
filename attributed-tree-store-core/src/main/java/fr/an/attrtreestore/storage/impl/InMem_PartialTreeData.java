@@ -1,5 +1,6 @@
 package fr.an.attrtreestore.storage.impl;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -71,6 +72,13 @@ public class InMem_PartialTreeData extends PartialTreeData implements IWriteTree
 
 	@Override // NOT relevant here.. simply throw ex
 	public NodeData get(NodeNamesPath path) {
+		throw new IllegalStateException("should not call (from IReadTree interface)");
+	}
+
+	@Override // NOT relevant here.. simply throw ex
+	public NodeData getWithChild(NodeNamesPath path,
+			Map<NodeName,NodeData> foundChildMap,
+			List<NodeName> notFoundChildLs) {
 		throw new IllegalStateException("should not call (from IReadTree interface)");
 	}
 

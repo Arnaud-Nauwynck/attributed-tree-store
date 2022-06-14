@@ -2,7 +2,7 @@ package fr.an.attrtree.hadoop3;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.TreeMap;
+import java.util.TreeSet;
 
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -14,9 +14,8 @@ import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.cachedfsview.NodeFsDataProvider;
+import fr.an.attrtreestore.cachedfsview.PrefetchNodeFsDataContext;
 import fr.an.attrtreestore.util.LoggingCallStats;
-import fr.an.attrtreestore.util.fsdata.DirEntryNameAndType;
-import fr.an.attrtreestore.util.fsdata.FsNodeType;
 import fr.an.attrtreestore.util.fsdata.NodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.DirNodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.FileNodeFsData;
@@ -59,7 +58,7 @@ public class HadoopNodeFsDataProvider extends NodeFsDataProvider {
 	// ------------------------------------------------------------------------
 
 	@Override
-	public NodeFsData queryNodeFsData(NodeNamesPath subpath) {
+	public NodeFsData queryNodeFsData(NodeNamesPath subpath, PrefetchNodeFsDataContext prefetchCtx) {
 		Path hadoopPath = subpathToHadoopPath(subpath);
 		
 		FileStatus hadoopFileStatus = fsGetFileStatus(hadoopPath);
@@ -78,14 +77,13 @@ public class HadoopNodeFsDataProvider extends NodeFsDataProvider {
 		if (hadoopFileStatus.isDirectory()) {
 			// also query child files
 			FileStatus[] hadoopChildLs = fsListStatus(hadoopPath);
-			val childEntriesBuilder = new TreeMap<NodeName,DirEntryNameAndType>();
+			val childNames = new TreeSet<NodeName>();
 			for(val hadoopChild: hadoopChildLs) {
 				val childFileName = hadoopChild.getPath().getName();
 				val childName = nodeNameEncoder.encode(childFileName);
-				val childType = hadoopChild.isDirectory()? FsNodeType.DIR : FsNodeType.FILE;
-				childEntriesBuilder.put(childName, new DirEntryNameAndType(childName, childType));
+				childNames.add(childName);
 			}
-			res = new DirNodeFsData(name, creationTime, lastModifiedTime, extraFsAttrs, childEntriesBuilder);
+			res = new DirNodeFsData(name, creationTime, lastModifiedTime, extraFsAttrs, childNames);
 		} else if (hadoopFileStatus.isFile()) {
 			long fileLength = hadoopFileStatus.getLen();
 			res = new FileNodeFsData(name, creationTime, lastModifiedTime, extraFsAttrs, fileLength);

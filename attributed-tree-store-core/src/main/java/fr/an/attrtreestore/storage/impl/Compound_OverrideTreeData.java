@@ -5,7 +5,6 @@ import java.util.List;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.override.OverrideNodeData;
-import fr.an.attrtreestore.api.override.OverrideNodeStatus;
 import fr.an.attrtreestore.api.override.OverrideTreeData;
 import lombok.Getter;
 import lombok.val;

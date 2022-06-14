@@ -7,8 +7,12 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
 
 import com.google.common.io.CountingInputStream;
 
@@ -20,9 +24,9 @@ import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.api.override.OverrideNodeData;
 import fr.an.attrtreestore.api.override.OverrideNodeStatus;
 import fr.an.attrtreestore.api.override.OverrideTreeData;
-import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions;
 import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
+import fr.an.attrtreestore.util.DefaultNamedThreadFactory;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.val;
@@ -105,6 +109,14 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	private long currFilePos = 0;
 	
 	private OutputStream currWriteStream;
+
+	private final LinkedBlockingQueue<byte[]> writeQueue = new LinkedBlockingQueue<byte[]>(); 
+	private final Object writerNotifyLock = new Object();
+	
+	private static final ThreadFactory writeThreadFactory = new DefaultNamedThreadFactory("WAL-WriteThread-", "", true);
+	private Thread writerThread;
+	private volatile boolean writerStopRequested;
+	private volatile boolean writerStopped;
 	
 	// ------------------------------------------------------------------------
 
@@ -141,24 +153,59 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	public void startWrite() {
 		// stream will be opened on first use
 	}
+	
 
+	// open on demand
+	private void ensureOpenWrite() {
+		if (this.currWriteStream == null) {
+			this.currWriteStream = blobStorage.openWrite(fileName, true);
+			// TOCHECK seek to last checkpoint flushed pos... 
+			
+			this.writerThread = writeThreadFactory.newThread(() -> writeLoop());
+		}
+	}
+
+	
 	public void flushStopWrite() {
 		synchronized(writeLock) {
 			if (currWriteStream != null) {
-				try {
-					currWriteStream.flush();
-				} catch (IOException ex) {
-					log.error("Failed flush WAL file (last entry might be corrupted?) !!", ex);
+				// TODO wait empty writeQueue!
+				synchronized (writerNotifyLock) {
+					writerNotifyLock.notify();
 				}
-				// TOADD wait writer thread if any
+				// wait queue is empty
+				if (! writeQueue.isEmpty()) {
+					for(;;) {
+						if (writeQueue.isEmpty()) {
+							break;
+						}
+						safeSleep(200);
+					}
+
+					safeSleep(200);
+				}
+				// wait writerThread as written + flushed all
+				for(;;) {
+					if (this.writerStopped) {
+						break;
+					}
+					safeSleep(200);
+				}
 				
 				try {
 					currWriteStream.close();
 				} catch (IOException ex) {
 					log.error("Failed close WAL file (last entry might be corrupted?) !!", ex);
 				}
-				currWriteStream = null;
+				this.currWriteStream = null;
 			}
+		}
+	}
+
+	private static void safeSleep(long millis) {
+		try {
+			Thread.sleep(millis);
+		} catch (InterruptedException e) {
 		}
 	}
 
@@ -219,7 +266,15 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
     		}
 		}
 	}
-	
+
+	@Override
+	public OverrideNodeData getOverrideWithChild(NodeNamesPath path, 
+			Map<NodeName, OverrideNodeData> foundChildMap,
+			List<NodeName> notFoundChildLs) {
+		// TOADD override for optims (avaoid re-resolve paths for child)
+		return defaultGetOverrideWithChild(path, foundChildMap, notFoundChildLs);
+	}
+
 	// implements api IWriteTreeData
 	// ------------------------------------------------------------------------
 
@@ -266,7 +321,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 			
 			// do write append
 			byte[] filePart = dataBuffer.toByteArray();
-			writeAppendToWal(filePart, 0, filePart.length);
+			writeAppendToWal(filePart);
 			
 			synchronized(entry) { // useless redundant lock?
 				// update in-memory: mark as 'UPDATED'
@@ -313,7 +368,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 			
 			// do write append
 			byte[] filePart = dataBuffer.toByteArray();
-			writeAppendToWal(filePart, 0, filePart.length);
+			writeAppendToWal(filePart);
 			
 			synchronized(entry) { // useless redundant lock?
 				// update in-memory: mark as 'UPDATED'
@@ -351,7 +406,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 			
 			// do write append
 			byte[] filePart = dataBuffer.toByteArray();
-			writeAppendToWal(filePart, 0, filePart.length);
+			writeAppendToWal(filePart);
 			
 			// update in-memory: mark as 'DELETED' + remove all sub-child if any
 			synchronized(entry) { // useless redundant lock?
@@ -587,28 +642,96 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	}
 
 	
-	protected void writeAppendToWal(byte[] data, int from, int len) {
+	protected void writeAppendToWal(byte[] data) {
 		// inneficient for local file: open+write+flush+close... 
 		// (but maybe equivalent for distributed blobStorage, like Azure Storage)
 		// ... this.blobStorage.writeAppendToFile(fileName, filePart);
-		if (this.currWriteStream == null) {
-			// open on demand
-			this.currWriteStream = blobStorage.openWrite(fileName, true);
-			// TOCHECK seek to last checkpoint flushed pos... 
+		ensureOpenWrite();
+		
+		writeQueue.add(data);
+		
+		this.currFilePos += data.length; // not writen/flushed yet
+		
+		synchronized(writerNotifyLock) {
+			writerNotifyLock.notify();
 		}
-		val posBefore = this.currFilePos;
-		// notice .. writing may be done asynchronously, by adding message to a queue, and polling to write in a separate thread
+	}
+
+	private void writeLoop() {
+		this.writerStopped = false;
 		try {
-			this.currWriteStream.write(data, from, len);
-		} catch (IOException ex) {
-			throw new RuntimeException("Failed to write wal " + fileName + " (prevPos:" + posBefore + ")?? ", ex);
+			for(;;) {
+				val foundFrag = writeQueue.poll();
+				if (foundFrag == null) {
+					synchronized(writerNotifyLock) {
+						try {
+							writerNotifyLock.wait(10000);
+						} catch (InterruptedException e) {
+						}
+					}
+					if (writerStopRequested) {
+						break;
+					}
+				} else { // else foundFrag != null
+					val foundFrag2 = writeQueue.poll();
+					if (foundFrag2 == null) {
+						// no more to concatenate, just write..
+						try {
+							this.currWriteStream.write(foundFrag);
+						} catch (IOException ex) {
+							throw new RuntimeException("Failed to write wal " + fileName, ex);
+							// TODO notify parent owner, maybe roll wal
+						}
+					} else {
+						// concatenate more frag up to maxConcatFrags (2M)
+						int maxConcatFrags = 2 * 1024*1024;
+						int currConcatLen = foundFrag.length + foundFrag2.length;
+						val frags = new ArrayList<byte[]>();
+						frags.add(foundFrag);
+						frags.add(foundFrag2);
+						for(;;) {
+							val moreFrag = writeQueue.poll();
+							if (moreFrag == null) {
+								break;
+							}
+							frags.add(moreFrag);
+							currConcatLen += moreFrag.length;
+							if (currConcatLen > maxConcatFrags) {
+								break;
+							}
+						}
+						// allocate buffer, and concatenate frags
+						val concatBuffer = new byte[currConcatLen];
+						int currBufferPos = 0;
+						for(val frag: frags) {
+							System.arraycopy(frag, 0, concatBuffer, currBufferPos, frag.length);
+						}
+						// do write concatenate frags
+						try {
+							this.currWriteStream.write(concatBuffer);
+						} catch (IOException ex) {
+							throw new RuntimeException("Failed to write wal " + fileName, ex);
+							// TODO notify parent owner, maybe roll wal
+						}
+					}
+					
+					try {
+						this.currWriteStream.flush();
+					} catch (IOException ex) {
+						throw new RuntimeException("Failed to flush wal " + fileName, ex);
+					}
+				}
+			} // for(;;)
+
+			try {
+				this.currWriteStream.flush();
+			} catch (IOException ex) {
+				throw new RuntimeException("Failed to flush wal " + fileName, ex);
+			}
+
+		} finally {
+			this.writerStopped = true;
 		}
-		try {
-			this.currWriteStream.flush();
-		} catch (IOException ex) {
-			throw new RuntimeException("Failed to flush wal " + fileName + " (prevPos:" + posBefore + ")?? ", ex);
-		}
-		this.currFilePos += len;
 	}
 
 }
