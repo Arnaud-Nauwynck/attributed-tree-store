@@ -2,7 +2,6 @@ package fr.an.attrtreestore.api;
 
 import java.util.Arrays;
 
-import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions;
 import lombok.val;
 
 /**
@@ -54,6 +53,12 @@ public final class NodeNamesPath {
 		return new NodeNamesPath(res);
 	}
 	
+	public NodeNamesPath subPath(int len) {
+        val res = new NodeName[len];
+        System.arraycopy(pathElements, 0, res, 0, len);
+        return new NodeNamesPath(res);
+    }
+	
 	public NodeNamesPath toParent() {
 		val len = pathElements.length;
 		if (len == 0) {
@@ -64,20 +69,36 @@ public final class NodeNamesPath {
 		System.arraycopy(pathElements, 0, res, 0, len - 1);
 		return new NodeNamesPath(res);
 	}
-	
 
+    public static NodeNamesPath commonPathOf(NodeNamesPath left, NodeNamesPath  right) {
+        val leftPathElements = left.pathElements;
+        val rightPathElements = right.pathElements;
+        val maxLen = Math.min(leftPathElements.length, rightPathElements.length);
+        int i = 0;
+        for(; i < maxLen; i++) {
+            if (! leftPathElements[i].equals(rightPathElements[i])) {
+                break;
+            }
+        }
+        return left.subPath(i);
+    }
+    
 	// ------------------------------------------------------------------------
 
 	public int pathElementCount() {
 		return pathElements.length;
 	}
 
+	public NodeName pathElement(int i) {
+        return pathElements[i];
+    }
+	
 	public NodeName lastName() {
 		return pathElements[pathElements.length-1];
 	}
 
 	public NodeName lastNameOrEmpty() {
-		if (pathElements.length == 0) return DefaultNodeNameEncoderOptions.EMPTY_NAME;
+		if (pathElements.length == 0) return NodeName.EMPTY;
 		return pathElements[pathElements.length-1];
 	}
 

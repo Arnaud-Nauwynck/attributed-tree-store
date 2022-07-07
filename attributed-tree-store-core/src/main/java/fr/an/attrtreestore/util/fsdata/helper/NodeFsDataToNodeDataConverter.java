@@ -12,6 +12,7 @@ import fr.an.attrtreestore.util.fsdata.NodeFsData.FileNodeFsData;
 import lombok.RequiredArgsConstructor;
 import lombok.val;
 
+// TODO deprecated??? cf fr.an.attrtreestore.cachedfsview.converter.NodeFsDataToNodeDataConverter
 @RequiredArgsConstructor
 public class NodeFsDataToNodeDataConverter {
 	

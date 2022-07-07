@@ -1,6 +1,5 @@
 package fr.an.attrtreestore.util.fsdata;
 
-import java.util.TreeMap;
 import java.util.TreeSet;
 
 import com.google.common.collect.ImmutableMap;

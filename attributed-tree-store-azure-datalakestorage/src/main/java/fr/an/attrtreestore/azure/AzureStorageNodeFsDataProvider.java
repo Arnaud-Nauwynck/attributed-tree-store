@@ -1,16 +1,16 @@
 package fr.an.attrtreestore.azure;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.TreeSet;
+
 import com.azure.core.http.rest.PagedIterable;
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
 import com.azure.storage.file.datalake.models.DataLakeStorageException;
 import com.azure.storage.file.datalake.models.PathItem;
 import com.azure.storage.file.datalake.models.PathProperties;
 import com.google.common.collect.ImmutableMap;
-
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.TreeSet;
 
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
@@ -20,7 +20,6 @@ import fr.an.attrtreestore.api.readprefetch.PrefetchNodeDataContext;
 import fr.an.attrtreestore.api.readprefetch.PrefetchProposedPathItem;
 import fr.an.attrtreestore.cachedfsview.NodeFsDataProvider;
 import fr.an.attrtreestore.cachedfsview.PrefetchNodeFsDataContext;
-import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions;
 import fr.an.attrtreestore.util.LoggingCounter;
 import fr.an.attrtreestore.util.fsdata.NodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.DirNodeFsData;
@@ -104,7 +103,7 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
             azPathProps = doRetryableAzQueryPathProperties(pathSlash, pathDirClient);
         }
 
-        val name = (path.pathElementCount() > 0)? path.lastName() : DefaultNodeNameEncoderOptions.EMPTY_NAME;
+        val name = (path.pathElementCount() > 0)? path.lastName() : NodeName.EMPTY;
         long creationTime = AzDatalakeStoreUtils.toMillis(azPathProps.getCreationTime());
         long lastModifiedTime = AzDatalakeStoreUtils.toMillis(azPathProps.getLastModified());
         val extraFsAttrs = ImmutableMap.<String,Object>of(

@@ -1,5 +1,9 @@
 package fr.an.attrtreestore.api;
 
+import java.util.Objects;
+
+import javax.annotation.Nonnull;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -20,6 +24,7 @@ import lombok.val;
 public class NodeData {
 	
 	/** can not be changed once constructed, except for internalizing ref with equivalent value */
+	@Nonnull
 	public /*final*/ NodeName name;
 
 	/** use-defined type... example: dir:1 / file:2  .. */
@@ -30,12 +35,14 @@ public class NodeData {
 	public final int mask;
 
 	/** can not be changed once constructed, except for internalizing ref with equivalent value */
+	@Nonnull
 	public /*final*/ ImmutableSet<NodeName> childNames; 
 
 	public int childCount() {
-		return (childNames != null)? childNames.size() : 0;
+		return childNames.size();
 	}
 
+	@Nonnull
 	public final ImmutableMap<String,NodeAttr> attrs;
 
 	public int attrCount() {
@@ -93,15 +100,16 @@ public class NodeData {
 	// ------------------------------------------------------------------------
 
 	public NodeData(NodeName name, int type, int mask, 
-			ImmutableSet<NodeName> childNames, ImmutableMap<String, NodeAttr> attrs, //  
+			@Nonnull ImmutableSet<NodeName> childNames, // 
+			@Nonnull ImmutableMap<String, NodeAttr> attrs, //  
 			long externalCreationTime, long externalLastModifiedTime, long externalLength, // 
 			long lastTreeDataUpdateTimeMillis,
 			int lastTreeDataUpdateCount) {
 		this.name = name;
 		this.type = type;
 		this.mask = mask;
-		this.childNames = childNames;
-		this.attrs = attrs;
+		this.childNames = Objects.requireNonNull(childNames);
+		this.attrs = Objects.requireNonNull(attrs);
 		this.externalCreationTime = externalCreationTime;
 		this.externalLastModifiedTime = externalLastModifiedTime;
 		this.externalLength = externalLength;

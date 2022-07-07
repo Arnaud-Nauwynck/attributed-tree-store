@@ -26,36 +26,43 @@ public class AttrDataEncoderHelper {
 	
 	// ------------------------------------------------------------------------
 	
-	public void writeNodeData_noName(DataOutput out, NodeData node
+	public void writeNodeData_noName(DataOutput out, NodeData nodeData
 			) throws IOException {
+		if (nodeData == null) {
+			out.writeInt(-1);
+			return;
+		}
 		
-		// ignored here: node.name
+		out.writeInt(nodeData.type);
+		
+		out.writeInt(nodeData.mask);
 
-		out.writeInt(node.type);
-		out.writeInt(node.mask);
+		writeIncrNodeNames(out, nodeData.childNames, "");
+		
+		writeAttrDatas(out, nodeData.attrs.values());
 
-		writeIncrNodeNames(out, node.childNames, "");
+		out.writeLong(nodeData.externalCreationTime);
+		out.writeLong(nodeData.externalLastModifiedTime);
+		out.writeLong(nodeData.externalLength);
+		out.writeLong(nodeData.getLastExternalRefreshTimeMillis());
 		
-		writeAttrDatas(out, node.attrs.values());
-
-		out.writeLong(node.externalCreationTime);
-		out.writeLong(node.externalLastModifiedTime);
-		out.writeLong(node.externalLength);
-		out.writeLong(node.getLastExternalRefreshTimeMillis());
+		out.writeLong(nodeData.lastTreeDataUpdateTimeMillis);
+		out.writeInt(nodeData.lastTreeDataUpdateCount);
 		
-		out.writeLong(node.lastTreeDataUpdateTimeMillis);
-		out.writeInt(node.lastTreeDataUpdateCount);
+		out.writeInt(nodeData.getTreeDataRecomputationMask());
+		out.writeInt(nodeData.getLruCount());
+		out.writeInt(nodeData.getLruAmortizedCount());
 		
-		out.writeInt(node.getTreeDataRecomputationMask());
-		out.writeInt(node.getLruCount());
-		out.writeInt(node.getLruAmortizedCount());
-		
-		out.writeLong(node.getLastTreeDataQueryTimeMillis());
+		out.writeLong(nodeData.getLastTreeDataQueryTimeMillis());
 	}
 
 	public NodeData readNodeData_noName(DataInput in, NodeName name) throws IOException {
 		
 		int type = in.readInt();
+		if (type == -1) {
+			return null;
+		}
+		
 		int mask = in.readInt();
 		
 		val childNameArray = readIncrNodeNames(in, "", nodeNameEncoder);
@@ -203,7 +210,21 @@ public class AttrDataEncoderHelper {
 		val res = new NodeName[valuesCount];  
 		for(int i = 0; i < valuesCount; i++) {
 			String value = readIncrString(in, curr);
-			res[i] = nodeNameEncoder.encode(value);
+			
+// ********************* TODO TEMPORARY BUG HACK
+			String name = value;
+            if (name.endsWith("/")) {
+                // should not occur
+                name = name.substring(0, name.length()-1);
+            }
+            val idxSep = name.lastIndexOf("/") ;
+            if (-1 != idxSep) {
+                // should not occur
+                name = name.substring(idxSep + 1, name.length());
+            }
+// ********************* 
+            
+			res[i] = nodeNameEncoder.encode(name);
 			curr = value;
 		}
 		return res;

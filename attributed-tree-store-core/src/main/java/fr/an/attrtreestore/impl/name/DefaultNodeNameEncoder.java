@@ -101,15 +101,15 @@ public class DefaultNodeNameEncoder extends NodeNameEncoder {
 		for(int i = 0; i < pathCount; i++) {
 			val pathElt = pathElts[i];
 			NodeName resElt;
-			if (i < internalizeMaxPathLevel) {
-				resElt = interned.get(pathElt);
-				if (resElt == null) {
-					resElt = doEncode(pathElt);
-					doPutInternalize(pathElt, resElt);
-				}
-			} else {
+//			if (i < internalizeMaxPathLevel) {
+//				resElt = interned.get(pathElt);
+//				if (resElt == null) {
+//					resElt = doEncode(pathElt);
+//					doPutInternalize(pathElt, resElt);
+//				}
+//			} else {
 				resElt = encode(pathElt);
-			}
+//			}
 			res[i] = resElt;
 		}
 		return res;

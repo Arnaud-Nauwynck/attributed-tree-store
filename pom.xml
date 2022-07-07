@@ -16,6 +16,9 @@
         <java.version>1.8</java.version>
         
         <hadoop3.version>3.3.3</hadoop3.version>
+        
+        <awsjavasdk.version>1.12.252</awsjavasdk.version>
+        
 	</properties>
 	
 	<modules>
@@ -25,6 +28,7 @@
 		<module>attributed-tree-store-nio</module>
 		
 		<module>attributed-tree-store-azure-datalakestorage</module>
+		<module>attributed-tree-store-s3</module>
 	</modules>
 
     <profiles>
@@ -92,6 +96,28 @@
 	            </exclusions>
 	        </dependency>
 	
+            <!-- S3 -->
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-s3</artifactId>
+                <version>${awsjavasdk.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.amazonaws</groupId>
+                        <artifactId>aws-java-sdk-kms</artifactId>
+                    </exclusion>
+                </exclusions>               
+            </dependency>
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-core</artifactId>
+                <version>${awsjavasdk.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>jmespath-java</artifactId>
+                <version>${awsjavasdk.version}</version>
+            </dependency>
 
 		</dependencies>
 	</dependencyManagement>

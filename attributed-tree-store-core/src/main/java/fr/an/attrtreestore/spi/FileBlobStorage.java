@@ -56,7 +56,7 @@ public class FileBlobStorage extends BlobStorage {
         val file = toFile(relativePath);
         val tmpres = file.listFiles();
         val res = new ArrayList<BlobStoreFileInfo>();
-        for(val e: tmpres) {
+		for (val e : tmpres) {
             String childRelativePath = relativePath + "/" + e.getName();
             res.add(toBlobStoreFileInfo(childRelativePath, e));
         }

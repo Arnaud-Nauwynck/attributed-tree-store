@@ -32,7 +32,7 @@ public abstract class OverrideTreeData implements IWriteTreeData {
 			List<NodeName> notFoundChildLs) {
 		return defaultGetOverrideWithChild(path, foundChildMap, notFoundChildLs);
 	}
-
+	
 	protected OverrideNodeData defaultGetOverrideWithChild(NodeNamesPath path,
 			Map<NodeName,OverrideNodeData> foundChildMap,
 			List<NodeName> notFoundChildLs) {
@@ -67,16 +67,5 @@ public abstract class OverrideTreeData implements IWriteTreeData {
 	public NodeData get(NodeNamesPath path) {
 		throw new UnsupportedOperationException("should not be called");
 	}
-
-	/** should not be called here, see getOverride() instead 
-	 * internally: because interface IWriteTreeData extends IReadTreeData 
-	 */
-	@Override
-	public NodeData getWithChild(NodeNamesPath path, 
-			Map<NodeName,NodeData> foundChildMap,
-			List<NodeName> notFoundChildLs) {
-		throw new UnsupportedOperationException("should not be called");
-	}
-
 	
 }

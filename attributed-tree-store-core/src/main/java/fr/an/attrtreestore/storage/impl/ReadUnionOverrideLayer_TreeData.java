@@ -56,8 +56,8 @@ public class ReadUnionOverrideLayer_TreeData extends TreeData implements IReadTr
 		val res = baseReadOnlyTree.get(path);
 		return res;
 	}
-	
-	@Override
+
+	@Deprecated
 	public NodeData getWithChild(NodeNamesPath path,
 			Map<NodeName,NodeData> foundChildMap,
 			List<NodeName> notFoundChildLs) {
@@ -107,9 +107,6 @@ public class ReadUnionOverrideLayer_TreeData extends TreeData implements IReadTr
 		}
 		return res;
 	}
-
-	
-	// public abstract CompletableFuture<NodeData> asyncGet(NodeNamesPath path);
 
 	@Override
 	public void put(NodeNamesPath path, NodeData data) {

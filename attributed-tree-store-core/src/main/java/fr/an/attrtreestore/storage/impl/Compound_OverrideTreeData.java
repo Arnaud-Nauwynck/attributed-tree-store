@@ -70,7 +70,7 @@ public class Compound_OverrideTreeData extends OverrideTreeData {
 		this.currWriteLast = newWalOverrideTree;
 		return prevArray;
 	}
-
+	
 	// ------------------------------------------------------------------------
 	
 	

@@ -1,22 +1,24 @@
 package fr.an.attrtreestore.storage.impl;
 
+import com.google.common.io.CountingInputStream;
+
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-
-import com.google.common.io.CountingInputStream;
+import java.util.Random;
 
 import fr.an.attrtreestore.api.IReadTreeData;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.ROCached_TreeData;
-import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions;
 import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.storage.impl.IndexedBlobStorage_TreeNodeDataEncoder.NodeDataAndChildFilePos;
+import fr.an.attrtreestore.util.MemoryWarningSystem;
+import fr.an.attrtreestore.util.MemoryWarningSystem.Listener;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -28,7 +30,8 @@ import lombok.extern.slf4j.Slf4j;
  * 
  */
 @Slf4j
-public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData implements IReadTreeData {
+public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData 
+	implements IReadTreeData { // Disposable // ??
 	
 	protected final BlobStorage blobStorage;
 
@@ -117,7 +120,7 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData i
 		
 		// init the root node, dataFilePos fixed known in file 
 		// field 'rootNode' is final, so must be set in ctor... 
-		val rootName = DefaultNodeNameEncoderOptions.EMPTY_NAME;
+		val rootName = NodeName.EMPTY;
 		val rootDataFilePos = IndexedBlobStorage_TreeNodeDataEncoder.FIXED_ROOT_FILEPOS;
 		this.rootNode = new CachedNodeEntry(rootName, rootDataFilePos, 
 				null, // cachedData... can be null, and filePos is set to reload it 
@@ -216,19 +219,47 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData i
 
 	// public api for freeing memory by evicting some internal nodes, reloadable later from cache
 	// ------------------------------------------------------------------------
+	
+	private Listener innerLowMemListener = null;
+	
+	private static final long MEGA = 1024*1024;
+	private FreeMemoryByRandomEvictingSubTreeParams randomEvictingSubTreeParams =
+			FreeMemoryByRandomEvictingSubTreeParams.builder()
+				.untilFreedMemSize(50 * MEGA)
+				.minLevel(3)
+				.minSubTreeSizeOnDisk(20 * MEGA)		
+				.maxSubTreeSizeOnDisk(50 * MEGA)		
+				.build();
+	
+	public void registerLowMemoryListenerOffloader() {
+		if (innerLowMemListener == null) {
+			innerLowMemListener = (usedMemory, maxMemory) -> {
+				if (randomEvictingSubTreeParams != null) {
+					log.info("detected low memory, randomEvictingSubTree ..");
+					long estimatedFreed = freeMemoryByRandomEvictingSubTree(randomEvictingSubTreeParams);
+					log.info("detected low memory.. randomEvictingSubTree => " + estimatedFreed / MEGA + " Mb");
+				}
+			};
+		}
+		MemoryWarningSystem.instance.addListener(innerLowMemListener);
+	}
 
+	public void unregisterLowMemoryListenerOffloader() {
+		if (innerLowMemListener != null) {
+			MemoryWarningSystem.instance.removeListener(innerLowMemListener);
+		}
+	}
+
+	
 	@Builder
-	public static class FreeMemoryParams {
-		long untilFreedMemSize;
-		
-		int minLevelEvictType1; // for Dir
-		
-		int minLevelEvictType2; // for File
-		
+	public static class FreeMemoryByRecursiveEvictingEntryParams {
+		public long untilFreedMemSize;		
+		public int minLevelEvictType1; // for Dir		
+		public int minLevelEvictType2; // for File
 	}
 
 	@RequiredArgsConstructor
-	private static class EvictContext {
+	private static class FreeMemoryByRecursiveEvictingEntryContext {
 		private final long untilFreedMemSize;
 		private final int minLevelEvictType1;
 		private final int minLevelEvictType2;
@@ -237,17 +268,17 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData i
 		private long currFreedMemSize;
 	}
 	
-	public long freeMemoryByEvictingEntries(
-			FreeMemoryParams params) {
+	public long freeMemoryByRecursiveEvictingEntries(
+			FreeMemoryByRecursiveEvictingEntryParams params) {
 		if (params.untilFreedMemSize == 0) {
 			params.untilFreedMemSize = 50 * 1024* 1024;
 		}
-		val ctx = new EvictContext(params.untilFreedMemSize, params.minLevelEvictType1, params.minLevelEvictType2);
+		val ctx = new FreeMemoryByRecursiveEvictingEntryContext(params.untilFreedMemSize, params.minLevelEvictType1, params.minLevelEvictType2);
 		doRecursiveFreeMemory(rootNode, ctx);
 		return ctx.currFreedMemSize;
 	}
 	
-	private void doRecursiveFreeMemory(CachedNodeEntry node, EvictContext ctx) {
+	private void doRecursiveFreeMemory(CachedNodeEntry node, FreeMemoryByRecursiveEvictingEntryContext ctx) {
 		Object[] childEntries = node.sortedEntries;
 		if (childEntries == null || childEntries.length == 0) {
 			return;
@@ -283,12 +314,8 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData i
 						// cache evict child entry.. replaced by NodeHandle
 						val childEntryHandle = new NodeEntryHandle(childNode.name, childNode.dataFilePos);
 						childEntries[i] = childEntryHandle;
-						
-						int estimateNodeMem = 120;
-						if (childNode.cachedData != null) {
-							val data = childNode.cachedData; 
-							estimateNodeMem += 50 * data.attrCount() + 16 * data.childCount();
-						}
+						int estimateNodeMem = estimateEntryInMemSize(childNode);
+						// may help GC by recursively clearing all refs, but need replacing by Handle..
 						ctx.currFreedMemSize += estimateNodeMem;
 						if (ctx.currFreedMemSize > ctx.untilFreedMemSize) {
 							return;
@@ -301,6 +328,135 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData i
 			ctx.currLevel--;
 		}
 	}
+
+	private int estimateEntryInMemSize(
+			final fr.an.attrtreestore.storage.impl.CachedROIndexedBlobStorage_TreeNodeData.CachedNodeEntry childNode) {
+		int estimateNodeMem = 120;
+		if (childNode.cachedData != null) {
+			val data = childNode.cachedData; 
+			estimateNodeMem += 50 * data.attrCount() + 16 * data.childCount();
+		}
+		return estimateNodeMem;
+	}
+	
+	// ------------------------------------------------------------------------
+	
+	@Builder
+	public static class FreeMemoryByRandomEvictingSubTreeParams {
+		public long untilFreedMemSize;
+		public int minLevel;		
+		public long minSubTreeSizeOnDisk;		
+		public long maxSubTreeSizeOnDisk;		
+	}
+
+	@RequiredArgsConstructor
+	private static class FreeMemoryByRandomEvictingSubTreeContext {
+		private final long untilFreedMemSize;
+		private final int minLevel;		
+		private final long minSubTreeSizeOnDisk;		
+		private final long maxSubTreeSizeOnDisk;		
+		private final Random rand;
+		
+		private int currLevel;
+		private long currFreedMemSize;
+	}
+
+	public long freeMemoryByRandomEvictingSubTree(
+			FreeMemoryByRandomEvictingSubTreeParams params) {
+		if (params.untilFreedMemSize == 0) {
+			params.untilFreedMemSize = 50 * 1024* 1024;
+		}
+		val ctx = new FreeMemoryByRandomEvictingSubTreeContext(
+				params.untilFreedMemSize, 
+				params.minLevel, 
+				params.minSubTreeSizeOnDisk,
+				params.maxSubTreeSizeOnDisk,
+				new Random()
+				);
+		for(;;) {
+			val prevFreedMemSize = ctx.currFreedMemSize;
+			doRandomTraverseUntilFreeSubTree(rootNode, ctx, fileLen);
+			val iterationFreedMemSize = ctx.currFreedMemSize - prevFreedMemSize;
+			if (iterationFreedMemSize == 0) {
+				break;
+			}
+			if (ctx.currFreedMemSize >= ctx.untilFreedMemSize) {
+				break;
+			}
+		}
+		return ctx.currFreedMemSize;
+	}
+	
+	private void doRandomTraverseUntilFreeSubTree(CachedNodeEntry node, 
+			FreeMemoryByRandomEvictingSubTreeContext ctx,
+			long currLastChildEndFilePos) {
+		Object[] childEntries = node.sortedEntries;
+		if (childEntries == null || childEntries.length == 0) {
+			return;
+		}
+		ctx.currLevel++;
+		try {
+			val childCount = childEntries.length;
+			
+			int maxRetryRand = Math.min(4, childCount);
+			for(int retryRandCount = 0; retryRandCount < maxRetryRand; retryRandCount++) {
+				int i = ctx.rand.nextInt(childCount);
+				Object child = childEntries[i];
+				
+				long childEndFilePos;
+				if (i + 1 < childCount) {
+					val nextSibling = childEntries[i+1];
+					childEndFilePos = ((nextSibling instanceof CachedNodeEntry))? 
+							((CachedNodeEntry) nextSibling).dataFilePos
+							: ((NodeEntryHandle) nextSibling).dataFilePos; 
+				} else {
+					childEndFilePos = currLastChildEndFilePos;
+				}
+	
+				if (!(child instanceof CachedNodeEntry)) {
+					// child already freed? try choose another child? else return..
+					continue;
+				}
+			
+				val childEntry = (CachedNodeEntry) child;
+				
+				long childDataFilePos = childEntry.dataFilePos;
+				long subTreeSize = childEndFilePos - childDataFilePos;
+
+				boolean freeChild = false;
+				if (ctx.currLevel >= ctx.minLevel
+						&& subTreeSize >= ctx.minSubTreeSizeOnDisk 
+						&& subTreeSize <= ctx.maxSubTreeSizeOnDisk) {
+					// ok, free
+					freeChild = true;
+				} else {
+					// recursive dive into, try to free a (random) sub-child..
+					val prev = ctx.currFreedMemSize;
+					
+					// *** recurse ***
+					doRandomTraverseUntilFreeSubTree(childEntry, ctx, childEndFilePos);
+					
+					val freedSubChild = ctx.currFreedMemSize != prev;
+					if (!freedSubChild) {
+						freeChild = true; 
+					}
+				}
+
+				if (freeChild) {
+					val childEntryHandle = new NodeEntryHandle(childEntry.name, childDataFilePos);
+					childEntries[i] = childEntryHandle;
+					int estimateNodeMem = estimateEntryInMemSize(childEntry);
+					// may help GC by recursively clearing all refs, but need replacing by Handle..
+					ctx.currFreedMemSize += estimateNodeMem;
+					return;
+				}
+			}
+
+		} finally {
+			ctx.currLevel--;
+		}
+	}
+
 	
 	
 	// ------------------------------------------------------------------------

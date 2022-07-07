@@ -517,8 +517,16 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 				val toCount = toFilePos - fromFilePos;
 				while(inCounter.getCount() < toCount) {
 					
-				    val pathText = AttrDataEncoderHelper.readIncrString(in, currPathSlash);
+				    String pathText = AttrDataEncoderHelper.readIncrString(in, currPathSlash);
 					this.currPathSlash = pathText;
+					
+// ********************* TODO TEMPORARY BUG HACK					
+					if (pathText.endsWith("/")) {
+					    // should not occur
+					    pathText = pathText.substring(0, pathText.length()-1);
+					}
+// ********************
+					
 					val path = (currPathSlash.isEmpty())? NodeNamesPath.ROOT  
 					        : nodeNameEncoder.encodePath(pathText);
 							 												

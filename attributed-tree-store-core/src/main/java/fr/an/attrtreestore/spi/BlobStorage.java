@@ -1,13 +1,14 @@
 package fr.an.attrtreestore.spi;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.val;
 
@@ -65,7 +66,13 @@ public abstract class BlobStorage {
 	// Json helper
 	// ------------------------------------------------------------------------
 	
-	private ObjectMapper jsonMapper = new ObjectMapper();
+	private ObjectMapper jsonMapper = createObjectMapper();
+
+    private ObjectMapper createObjectMapper() {
+        val res = new ObjectMapper();
+        res.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        return res;
+    }
 	
 	public <T> void writeFileJson(String filePath, T data) {
 		try(val out = new BufferedOutputStream(openWrite(filePath, false))) {

@@ -2,14 +2,12 @@ package fr.an.attrtreestore.storage.impl;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import fr.an.attrtreestore.api.IInMemCacheReadTreeData;
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.ROCached_TreeData;
 import fr.an.attrtreestore.api.ROCached_TreeData.IndexedBlobStorageInitMode;
@@ -176,13 +174,6 @@ public class PersistedTreeData extends TreeData implements IWriteTreeData, IInMe
 		return unionTree.get(path);
 	}
 	
-	@Override
-	public NodeData getWithChild(NodeNamesPath path,
-			Map<NodeName,NodeData> foundChildMap,
-			List<NodeName> notFoundChildLs) {
-		return unionTree.getWithChild(path, foundChildMap, notFoundChildLs);
-	}
-	
 	@Override // implements IInMemCacheReadTreeData
 	public OverrideNodeData getIfInMemCache(NodeNamesPath path) {
 		OverrideNodeData overrideData;
@@ -231,6 +222,17 @@ public class PersistedTreeData extends TreeData implements IWriteTreeData, IInMe
 		String newWalFilename;
 		WALBlobStorage_OverrideTreeData newWalOverrideTree;
 		OverrideTreeData[] prevWalOverrideTrees;
+	}
+	
+	public void flushWrite() {
+	    synchronized(manifestLock) {
+	        val overrideTrees = underlyingOverrideTree.sequenceOverrideTrees;
+	        val lastOverrideTree = overrideTrees[overrideTrees.length-1];
+	        if (lastOverrideTree instanceof WALBlobStorage_OverrideTreeData) {
+	            val wal = (WALBlobStorage_OverrideTreeData) lastOverrideTree;
+	            wal.flushStopWrite();
+	        }
+	    }
 	}
 	
 	protected RollWALResult rollAddWal() {

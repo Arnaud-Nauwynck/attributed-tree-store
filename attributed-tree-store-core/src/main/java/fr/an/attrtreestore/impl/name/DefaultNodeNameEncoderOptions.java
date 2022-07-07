@@ -8,11 +8,10 @@ import static fr.an.attrtreestore.impl.name.NodeNameEncoderConstants.VM_RefSize;
 
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.name.NodeNameEncoderOption;
+import fr.an.attrtreestore.api.name.StringNodeName;
 import lombok.AllArgsConstructor;
 
 public class DefaultNodeNameEncoderOptions {
-
-	public static final NodeName EMPTY_NAME = new StringNodeName("");
 
 	public static final StringNodeNameEncoderOption CHAR_ARRAY_OPTION = new StringNodeNameEncoderOption();
 	public static final StringNodeNameEncoderOption STRING_OPTION = new StringNodeNameEncoderOption();
@@ -35,17 +34,6 @@ public class DefaultNodeNameEncoderOptions {
 	}
 	
 	// ------------------------------------------------------------------------
-	
-	@AllArgsConstructor
-	public static class StringNodeName extends NodeName {
-
-		public final String name;
-		
-		@Override
-		public String toText() {
-			return name;
-		}
-	}
 	
 	public static class StringNodeNameEncoderOption extends NodeNameEncoderOption {
 		@Override

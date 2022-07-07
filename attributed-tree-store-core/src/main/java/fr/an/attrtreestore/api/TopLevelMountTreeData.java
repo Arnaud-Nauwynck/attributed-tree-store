@@ -1,12 +1,11 @@
 package fr.an.attrtreestore.api;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoderOptions;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import lombok.val;
 
 /**
@@ -50,7 +49,7 @@ public class TopLevelMountTreeData<TTree extends TreeData & IWriteTreeData> exte
 	}
 
 	protected void updateRootData() {
-		val name = DefaultNodeNameEncoderOptions.EMPTY_NAME;
+		val name = NodeName.EMPTY;
 		val childNames = ImmutableSet.<NodeName>copyOf(this.mountTrees.keySet());
 		val attrs = ImmutableMap.<String,NodeAttr>of();
 		val now = System.currentTimeMillis();

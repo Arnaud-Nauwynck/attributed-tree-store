@@ -16,13 +16,10 @@ public interface IWriteTreeData extends IReadTreeData { // TOADD should not exte
 	
 	public void remove(NodeNamesPath path);
 
-	// should override for optims
+	// may override for optims
 	default public void putWithChild(NodeNamesPath path, NodeData data, Collection<NodeData> childDatas) {
 	    put(path, data);
-	    for(val childData: childDatas) {
-	        val childPath = path.toChild(childData.name); 
-	        put(childPath, childData);	        
-	    }
+	    putChildList(path, childDatas);
 	}
 	
 	default public void putChildList(NodeNamesPath parentPath, Collection<NodeData> childDatas) {

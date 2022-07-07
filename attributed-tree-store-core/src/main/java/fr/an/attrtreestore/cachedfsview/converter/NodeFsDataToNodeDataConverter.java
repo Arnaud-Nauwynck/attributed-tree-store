@@ -2,6 +2,8 @@ package fr.an.attrtreestore.cachedfsview.converter;
 
 import java.util.TreeSet;
 
+import javax.annotation.Nonnull;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -63,7 +65,7 @@ public abstract class NodeFsDataToNodeDataConverter {
 		}
 
 		// overridable
-		protected ImmutableMap<String, NodeAttr> nodeFsDataToAttrs(NodeNamesPath path, NodeFsData fsData, long refreshTimeMillis) {
+		protected @Nonnull ImmutableMap<String, NodeAttr> nodeFsDataToAttrs(NodeNamesPath path, NodeFsData fsData, long refreshTimeMillis) {
 			return ImmutableMap.of();
 		}
 		

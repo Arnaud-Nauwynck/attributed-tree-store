@@ -23,6 +23,9 @@ public abstract class NodeNameEncoder {
 	}
 
 	public NodeNamesPath encodePath(String path) {
+	    if (path == null || path.equals("") || path.equals("/")) {
+	        return NodeNamesPath.ROOT; 
+	    }
 		// TOCHECK remove first "/" if any ??
 		if (path.startsWith("/")) {
 			path = path.substring(1);

@@ -4,8 +4,14 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 
+import fr.an.attrtreestore.api.name.StringNodeName;
+
 public abstract class NodeName implements Comparable<NodeName> {
 
+    public static final NodeName EMPTY = new StringNodeName("");
+
+    // --------------------------------------------------------------------------------------------
+    
 	public abstract String toText();
 
 	public void appendTo(StringBuilder sb) {
