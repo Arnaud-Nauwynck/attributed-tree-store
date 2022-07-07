@@ -25,6 +25,12 @@
 			<artifactId>attributed-tree-store-core</artifactId>
     	</dependency>
 
+		<!-- related project -->
+		<dependency>
+	    	<groupId>org.simplestorage4j</groupId>
+		    <artifactId>simple-storage-4j-s3</artifactId>
+    	</dependency>
+    	
         <!-- S3 specific dependencies -->
         <dependency>
             <groupId>com.amazonaws</groupId>

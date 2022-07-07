@@ -7,13 +7,13 @@ import java.util.Collections;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.simplestorage4j.api.BlobStorage;
+import org.simplestorage4j.api.FileBlobStorage;
 
 import fr.an.attrtreestore.TstMkdirDirUtils;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoder;
-import fr.an.attrtreestore.spi.BlobStorage;
-import fr.an.attrtreestore.spi.FileBlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.AttrInfoIndexes;
 import fr.an.attrtreestore.storage.impl.IndexedBlobStorage_TreeNodeDataEncoder;

@@ -10,6 +10,9 @@ import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.simplestorage4j.api.util.LoggingCounter;
+import org.simplestorage4j.api.util.LoggingCounter.LoggingCounterParams;
+
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
@@ -18,8 +21,6 @@ import fr.an.attrtreestore.cachedfsview.converter.NodeFsDataToNodeDataConverter;
 import fr.an.attrtreestore.cachedfsview.converter.NodeFsDataToNodeDataConverter.DefaultNodeFsDataToNodeDataConverter;
 import fr.an.attrtreestore.storage.impl.PersistedTreeData;
 import fr.an.attrtreestore.util.AttrTreeStoreUtils;
-import fr.an.attrtreestore.util.LoggingCounter;
-import fr.an.attrtreestore.util.LoggingCounter.LoggingCounterParams;
 import fr.an.attrtreestore.util.fsdata.NodeFsData;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

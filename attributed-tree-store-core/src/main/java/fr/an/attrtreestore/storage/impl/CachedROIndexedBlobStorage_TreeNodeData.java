@@ -10,12 +10,13 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Random;
 
+import org.simplestorage4j.api.BlobStorage;
+
 import fr.an.attrtreestore.api.IReadTreeData;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.ROCached_TreeData;
-import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.storage.impl.IndexedBlobStorage_TreeNodeDataEncoder.NodeDataAndChildFilePos;
 import fr.an.attrtreestore.util.MemoryWarningSystem;
 import fr.an.attrtreestore.util.MemoryWarningSystem.Listener;

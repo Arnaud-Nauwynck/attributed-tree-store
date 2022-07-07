@@ -1,6 +1,7 @@
 package fr.an.attrtreestore.api;
 
-import fr.an.attrtreestore.spi.BlobStorage;
+import org.simplestorage4j.api.BlobStorage;
+
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.impl.PersistedTreeData;
 

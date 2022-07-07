@@ -1,16 +1,19 @@
 package fr.an.attrtreestore.azure;
 
-import com.azure.storage.file.datalake.DataLakeDirectoryClient;
-import com.azure.storage.file.datalake.models.PathItem;
-import com.azure.storage.file.datalake.models.PathProperties;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+
+import org.simplestorage4j.api.util.LoggingCounter;
+import org.simplestorage4j.api.util.LoggingCounter.LoggingCounterParams;
+
+import com.azure.storage.file.datalake.DataLakeDirectoryClient;
+import com.azure.storage.file.datalake.models.PathItem;
+import com.azure.storage.file.datalake.models.PathProperties;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeAttr;
@@ -18,8 +21,6 @@ import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
-import fr.an.attrtreestore.util.LoggingCounter;
-import fr.an.attrtreestore.util.LoggingCounter.LoggingCounterParams;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.val;

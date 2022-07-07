@@ -15,6 +15,8 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import org.simplestorage4j.api.util.LoggingCounter;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -33,7 +35,6 @@ import fr.an.attrtreestore.api.readprefetch.LimitingPrefetchNodeDataContext.Pref
 import fr.an.attrtreestore.api.readprefetch.PrefetchNodeDataContext;
 import fr.an.attrtreestore.api.readprefetch.PrefetchProposedPathItem;
 import fr.an.attrtreestore.util.DefaultNamedThreadFactory;
-import fr.an.attrtreestore.util.LoggingCounter;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.val;

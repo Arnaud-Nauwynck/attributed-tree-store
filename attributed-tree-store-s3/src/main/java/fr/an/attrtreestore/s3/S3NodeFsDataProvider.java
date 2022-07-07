@@ -8,6 +8,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.TreeSet;
 
+import org.simplestorage4j.s3.S3Client;
+
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;

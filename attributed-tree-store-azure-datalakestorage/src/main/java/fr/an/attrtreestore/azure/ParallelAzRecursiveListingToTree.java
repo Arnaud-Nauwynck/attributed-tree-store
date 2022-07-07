@@ -1,8 +1,5 @@
 package fr.an.attrtreestore.azure;
 
-import com.azure.storage.file.datalake.DataLakeDirectoryClient;
-import com.azure.storage.file.datalake.models.PathItem;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -11,13 +8,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.simplestorage4j.api.util.LoggingCounter;
+import org.simplestorage4j.api.util.LoggingCounter.LoggingCounterParams;
+
+import com.azure.storage.file.datalake.DataLakeDirectoryClient;
+import com.azure.storage.file.datalake.models.PathItem;
+
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
-import fr.an.attrtreestore.util.LoggingCounter;
-import fr.an.attrtreestore.util.LoggingCounter.LoggingCounterParams;
 import lombok.Getter;
 import lombok.val;
 import lombok.extern.slf4j.Slf4j;

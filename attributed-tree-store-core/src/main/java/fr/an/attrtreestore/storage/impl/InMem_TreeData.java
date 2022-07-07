@@ -9,6 +9,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.simplestorage4j.api.BlobStorage;
+import org.simplestorage4j.api.util.NoFlushCountingOutputStream;
+import org.simplestorage4j.api.util.NullCountingOutputStream;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -19,9 +23,6 @@ import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.TreeData;
-import fr.an.attrtreestore.spi.BlobStorage;
-import fr.an.attrtreestore.util.NoFlushCountingOutputStream;
-import fr.an.attrtreestore.util.NullCountingOutputStream;
 import lombok.Getter;
 import lombok.val;
 import lombok.extern.slf4j.Slf4j;

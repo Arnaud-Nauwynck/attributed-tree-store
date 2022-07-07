@@ -13,6 +13,8 @@ import java.util.stream.Collectors;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.simplestorage4j.api.BlobStorage;
+import org.simplestorage4j.api.FileBlobStorage;
 
 import fr.an.attrtreestore.TstMkdirDirUtils;
 import fr.an.attrtreestore.api.ROCached_TreeData.IndexedBlobStorageInitMode;
@@ -23,8 +25,6 @@ import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoder;
 import fr.an.attrtreestore.impl.traversal.CounterNodeTreeDataVisitor;
 import fr.an.attrtreestore.impl.traversal.CounterNodeTreeDataVisitor.TreeCount;
 import fr.an.attrtreestore.impl.traversal.DefaultTreeDataWalker;
-import fr.an.attrtreestore.spi.BlobStorage;
-import fr.an.attrtreestore.spi.FileBlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.AttrInfoIndexes;
 import fr.an.attrtreestore.storage.impl.CachedROIndexedBlobStorage_TreeNodeData;

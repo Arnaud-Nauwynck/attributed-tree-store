@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 
+import org.simplestorage4j.api.BlobStorage;
+
 import com.google.common.io.CountingInputStream;
 
 import fr.an.attrtreestore.api.NodeData;
@@ -24,7 +26,6 @@ import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.api.override.OverrideNodeData;
 import fr.an.attrtreestore.api.override.OverrideNodeStatus;
 import fr.an.attrtreestore.api.override.OverrideTreeData;
-import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.util.DefaultNamedThreadFactory;
 import lombok.AllArgsConstructor;

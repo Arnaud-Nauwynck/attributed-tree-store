@@ -1,8 +1,9 @@
 package fr.an.attrtreestore.cachedfsview;
 
+import org.simplestorage4j.api.BlobStorage;
+
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.impl.DefaultSyncCachedImage_TreeData;
 import fr.an.attrtreestore.storage.impl.PersistedTreeData;

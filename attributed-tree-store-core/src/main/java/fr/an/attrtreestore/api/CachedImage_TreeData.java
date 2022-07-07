@@ -1,8 +1,9 @@
 package fr.an.attrtreestore.api;
 
+import org.simplestorage4j.api.util.LoggingCounter;
+import org.simplestorage4j.api.util.LoggingCounter.MsgPrefixLoggingCallback;
+
 import fr.an.attrtreestore.api.readprefetch.IPrefetchReadTreeDataSupport;
-import fr.an.attrtreestore.util.LoggingCounter;
-import fr.an.attrtreestore.util.LoggingCounter.MsgPrefixLoggingCallback;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;

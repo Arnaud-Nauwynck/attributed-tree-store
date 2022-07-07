@@ -15,6 +15,8 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
         
+        <simple-storage-4j.version>1.0.0-SNAPSHOT</simple-storage-4j.version>
+
         <hadoop3.version>3.3.3</hadoop3.version>
         
         <awsjavasdk.version>1.12.252</awsjavasdk.version>
@@ -29,29 +31,46 @@
 		
 		<module>attributed-tree-store-azure-datalakestorage</module>
 		<module>attributed-tree-store-s3</module>
-	</modules>
-
-    <profiles>
-        <profile>
-            <id>hadoop3</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-            <modules>
-				<module>attributed-tree-store-hadoop3</module>
-            </modules>
-        </profile>
-    </profiles>
+		<module>attributed-tree-store-hadoop3</module>
+    </modules>
 	
 	<dependencyManagement>
       <dependencies>
-			<!-- project modules -->			
+			<!-- project modules -->
 			<dependency>
 			    <groupId>fr.an.attrtreestore</groupId>
 				<artifactId>attributed-tree-store-core</artifactId>
-				<version>1.0.0-SNAPSHOT</version>
+				<version>${project.version}</version>
 			</dependency>
 
+			<!-- related project -->
+			<dependency>
+				<groupId>org.simplestorage4j</groupId>
+			    <artifactId>simple-storage-4j-api</artifactId>
+				<version>${simple-storage-4j.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.simplestorage4j</groupId>
+			    <artifactId>simple-storage-4j-azure-datalakestorage</artifactId>
+				<version>${simple-storage-4j.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.simplestorage4j</groupId>
+			    <artifactId>simple-storage-4j-s3</artifactId>
+				<version>${simple-storage-4j.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.simplestorage4j</groupId>
+			    <artifactId>simple-storage-4j-hadoop3</artifactId>
+				<version>${simple-storage-4j.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.simplestorage4j</groupId>
+			    <artifactId>simple-storage-4j-sync</artifactId>
+				<version>${simple-storage-4j.version}</version>
+			</dependency>
+
+			
 			<!-- thirdparties -->
 			<dependency>
 				<groupId>org.springframework.boot</groupId>

@@ -10,9 +10,10 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.simplestorage4j.api.util.LoggingCounter;
+
 import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.name.NodeNameEncoder;
-import fr.an.attrtreestore.util.LoggingCounter;
 import lombok.val;
 import lombok.extern.slf4j.Slf4j;
 

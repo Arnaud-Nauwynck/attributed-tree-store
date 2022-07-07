@@ -3,6 +3,8 @@ package fr.an.attrtreestore.storage.impl;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.simplestorage4j.api.BlobStorage;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import fr.an.attrtreestore.api.IInMemCacheReadTreeData;
@@ -16,7 +18,6 @@ import fr.an.attrtreestore.api.override.OverrideNodeData;
 import fr.an.attrtreestore.api.override.OverrideNodeStatus;
 import fr.an.attrtreestore.api.override.OverrideTreeData;
 import fr.an.attrtreestore.impl.traversal.DefaultTreeDataCopier;
-import fr.an.attrtreestore.spi.BlobStorage;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import lombok.AllArgsConstructor;
 import lombok.val;
