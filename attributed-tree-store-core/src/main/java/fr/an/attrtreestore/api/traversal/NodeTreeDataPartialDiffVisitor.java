@@ -1,7 +1,8 @@
 package fr.an.attrtreestore.api.traversal;
 
+import org.path4j.NodeNamesPath;
+
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.partial.PartialNodeData;
 
 public abstract class NodeTreeDataPartialDiffVisitor<TCtx> {

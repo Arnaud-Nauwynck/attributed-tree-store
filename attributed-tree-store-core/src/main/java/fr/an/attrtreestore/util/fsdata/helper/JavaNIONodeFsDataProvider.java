@@ -9,11 +9,12 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNameEncoder;
+import org.path4j.NodeNamesPath;
+
 import com.google.common.collect.ImmutableMap;
 
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.cachedfsview.NodeFsDataProvider;
 import fr.an.attrtreestore.cachedfsview.PrefetchNodeFsDataContext;
 import fr.an.attrtreestore.util.fsdata.NodeFsData;
@@ -57,7 +58,7 @@ public class JavaNIONodeFsDataProvider extends NodeFsDataProvider {
 			throw new RuntimeException("Failed to read file attr", ex);
 		}
 		
-		NodeName name = subpath.lastName();
+		NodeName name = subpath.last();
 		
 		long creationTime = nioAttr.creationTime().toMillis();
 		long lastModifiedTime = nioAttr.lastModifiedTime().toMillis();

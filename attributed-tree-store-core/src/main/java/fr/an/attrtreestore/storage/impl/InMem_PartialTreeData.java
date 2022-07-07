@@ -5,10 +5,11 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNamesPath;
+
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.partial.PartialNodeData;
 import fr.an.attrtreestore.api.partial.PartialTreeData;
 import lombok.val;
@@ -94,7 +95,7 @@ public class InMem_PartialTreeData extends PartialTreeData implements IWriteTree
 		if (parent.childEntries == null) {
 			parent.childEntries = new TreeMap<>();
 		}
-		val name = path.lastName();
+		val name = path.last();
 		val node = parent.getChild(name);
 		if (node == null) {
 			// create+add node
@@ -117,7 +118,7 @@ public class InMem_PartialTreeData extends PartialTreeData implements IWriteTree
 		if (parent.childEntries == null) {
 			return; // ok: no child to remove
 		}
-		val childName = path.lastName();
+		val childName = path.last();
 
 		if (parent.dataIfPresent != null && parent.dataIfPresent.childNames != null 
 				&& parent.dataIfPresent.childNames.contains(childName)
@@ -165,14 +166,13 @@ public class InMem_PartialTreeData extends PartialTreeData implements IWriteTree
 	// ------------------------------------------------------------------------
 	
 	protected PartialNodeEntry resolveOrNull(NodeNamesPath path) {
-		return resolveUpTo(path, path.pathElements.length);
+		return resolveUpTo(path, path.size());
 	}
 	
 	protected PartialNodeEntry resolveUpTo(NodeNamesPath path, int pathEltCount) {
-		val pathElts = path.pathElements;
 		PartialNodeEntry currEntry = rootNode;
 		for(int i = 0; i < pathEltCount; i++) {
-			val pathElt = pathElts[i];
+			val pathElt = path.get(i);
 			val foundChildEntry = currEntry.getChild(pathElt);
 			if (foundChildEntry == null) {
 				return null; 
@@ -184,17 +184,16 @@ public class InMem_PartialTreeData extends PartialTreeData implements IWriteTree
 	}
 
 	protected PartialNodeEntry resolveMkdirUpToParent(NodeNamesPath ofChildPath) {
-		if (ofChildPath.pathElementCount() <= 1) {
+		if (ofChildPath.size() <= 1) {
 			return rootNode;
 		}
-		return resolveMkdirUpTo(ofChildPath, ofChildPath.pathElements.length - 1);
+		return resolveMkdirUpTo(ofChildPath, ofChildPath.size() - 1);
 	}
 
 	protected PartialNodeEntry resolveMkdirUpTo(NodeNamesPath path, int pathEltCount) {
-		val pathElts = path.pathElements;
 		PartialNodeEntry currEntry = rootNode;
 		for(int i = 0; i < pathEltCount; i++) {
-			val pathElt = pathElts[i];
+			val pathElt = path.get(i);
 			if (currEntry.childEntries == null) {
 				currEntry.childEntries = new TreeMap<>();
 			}

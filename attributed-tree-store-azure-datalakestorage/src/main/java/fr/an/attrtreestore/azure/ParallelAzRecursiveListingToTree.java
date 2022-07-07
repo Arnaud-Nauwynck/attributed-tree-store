@@ -8,6 +8,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNameEncoder;
+import org.path4j.NodeNamesPath;
 import org.simplestorage4j.api.util.LoggingCounter;
 import org.simplestorage4j.api.util.LoggingCounter.LoggingCounterParams;
 
@@ -16,9 +19,6 @@ import com.azure.storage.file.datalake.models.PathItem;
 
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import lombok.Getter;
 import lombok.val;
 import lombok.extern.slf4j.Slf4j;
@@ -150,7 +150,7 @@ public class ParallelAzRecursiveListingToTree extends AzRecursiveListingToTree {
             NodeNamesPath destPath,
             DataLakeDirectoryClient parentDirClient
             ) {
-        val name = destPath.lastNameOrEmpty();
+        val name = destPath.lastOrEmpty();
         if (!pathItem.isDirectory()) {
             // should not occur?
             val nodeData = filePathItemToNodeData(pathItem, name);

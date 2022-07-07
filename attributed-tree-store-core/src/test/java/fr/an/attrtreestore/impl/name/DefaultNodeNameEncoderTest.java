@@ -10,8 +10,8 @@ import java.util.Random;
 
 import org.junit.Assert;
 import org.junit.Test;
-
-import fr.an.attrtreestore.api.NodeName;
+import org.path4j.NodeName;
+import org.path4j.encoder.DefaultNodeNameEncoder;
 
 public class DefaultNodeNameEncoderTest {
 

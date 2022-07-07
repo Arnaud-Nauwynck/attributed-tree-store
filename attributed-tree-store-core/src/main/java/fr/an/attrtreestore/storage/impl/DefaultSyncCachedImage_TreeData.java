@@ -15,6 +15,8 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNamesPath;
 import org.simplestorage4j.api.util.LoggingCounter;
 
 import com.google.common.collect.ImmutableMap;
@@ -23,8 +25,6 @@ import com.google.common.collect.ImmutableSet;
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeAttr;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.SyncCachedImage_TreeData;
 import fr.an.attrtreestore.api.TreeData;
 import fr.an.attrtreestore.api.override.OverrideNodeStatus;
@@ -368,7 +368,7 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 	    val putReason = CachePutReason.resyncDeletedAncestor; 
 		// need resolve deleted ancestor parent, and recursive delete from cache
 		// example: "a/b/c/d" detected as deleted .. check parent "a/b/c", then "a/b", then "a" ..
-		val pathElementCount = path.pathElementCount(); // example 4
+		val pathElementCount = path.size(); // example 4
 		if (pathElementCount > 0) {
 			int ancestorPathLevel = pathElementCount-1; // example
 			NodeNamesPath currAncestorPath = path.toParent();
@@ -415,7 +415,7 @@ public class DefaultSyncCachedImage_TreeData<TCacheStorageTreeData extends TreeD
 			} else { // ancestorPathLevel == 0
 				// should not occur.. all ancestors deleted, even 'rootNode'?
 				NodeNamesPath rootPath = NodeNamesPath.ROOT;
-				val newRootData = new NodeData(path.pathElements[0], 0, 0,
+				val newRootData = new NodeData(path.get(0), 0, 0,
 						ImmutableSet.<NodeName>of(), ImmutableMap.<String,NodeAttr>of(),
 						0L, 0, 0, 0, 0);
 				doCachePut_clearPendingTaskIfAny(rootPath, newRootData, putReason);

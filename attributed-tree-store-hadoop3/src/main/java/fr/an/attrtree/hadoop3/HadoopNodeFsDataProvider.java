@@ -7,12 +7,12 @@ import java.util.TreeSet;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.path4j.NodeName;
+import org.path4j.NodeNameEncoder;
+import org.path4j.NodeNamesPath;
 
 import com.google.common.collect.ImmutableMap;
 
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.cachedfsview.NodeFsDataProvider;
 import fr.an.attrtreestore.cachedfsview.PrefetchNodeFsDataContext;
 import fr.an.attrtreestore.util.LoggingCallStats;
@@ -65,7 +65,7 @@ public class HadoopNodeFsDataProvider extends NodeFsDataProvider {
 		if (hadoopFileStatus == null) {
 			return null;
 		}
-		val name = subpath.lastName();
+		val name = subpath.last();
 		
 		long creationTime = hadoopFileStatus.getModificationTime(); // info not known in hadoop.. use modificationTime?
 		long lastModifiedTime = hadoopFileStatus.getModificationTime();

@@ -1,11 +1,12 @@
 package fr.an.attrtreestore.storage.api;
 
+import org.path4j.NodeName;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import fr.an.attrtreestore.api.NodeAttr;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
 
 public class TreeDataTstGenerator {
 

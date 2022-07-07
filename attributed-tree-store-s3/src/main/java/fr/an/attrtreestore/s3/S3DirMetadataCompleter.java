@@ -1,8 +1,9 @@
 package fr.an.attrtreestore.s3;
 
+import org.path4j.NodeNamesPath;
+
 import com.google.common.collect.ImmutableMap;
 
-import fr.an.attrtreestore.api.NodeNamesPath;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 

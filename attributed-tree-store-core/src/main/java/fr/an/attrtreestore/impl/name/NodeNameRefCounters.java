@@ -3,9 +3,10 @@ package fr.an.attrtreestore.impl.name;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNamesPath;
+
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.TreeData;
 import fr.an.attrtreestore.api.traversal.NodeTreeDataVisitor.SimpleNodeTreeDataVisitor;
 import fr.an.attrtreestore.impl.traversal.DefaultTreeDataWalker;

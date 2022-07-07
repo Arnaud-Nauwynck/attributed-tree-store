@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNamesPath;
 import org.simplestorage4j.api.BlobStorage;
 import org.simplestorage4j.api.util.NoFlushCountingOutputStream;
 import org.simplestorage4j.api.util.NullCountingOutputStream;
@@ -20,8 +22,6 @@ import fr.an.attrtreestore.api.IReadTreeData;
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeAttr;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.TreeData;
 import lombok.Getter;
 import lombok.val;
@@ -137,7 +137,7 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 
 	@Override
 	public NodeData get(NodeNamesPath path) {
-		InMemNodeEntry entry = resolveUpTo(path, path.pathElements.length);
+		InMemNodeEntry entry = resolveUpTo(path, path.size());
 		if (entry == null) {
 			return null;
 		}
@@ -148,7 +148,7 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 	public NodeData getWithChild(NodeNamesPath path,
 			Map<NodeName,NodeData> foundChildMap,
 			List<NodeName> notFoundChildLs) {
-		InMemNodeEntry entry = resolveUpTo(path, path.pathElements.length);
+		InMemNodeEntry entry = resolveUpTo(path, path.size());
 		if (entry == null) {
 			return null;
 		}
@@ -179,11 +179,10 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 	
 	@Override
 	public void put(NodeNamesPath path, NodeData data) {
-		val pathElts = path.pathElements;
-		val pathEltCount = pathElts.length;
+		val pathEltCount = path.size();
 		InMemNodeEntry currEntry = rootNode;
 		for(int i = 0; i < pathEltCount; i++) {
-			val pathElt = pathElts[i];
+			val pathElt = path.get(i);
 			currEntry = currEntry.getOrCreateEntry(pathElt);
 		}
 		currEntry.data = data;
@@ -195,7 +194,7 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 		if (parent.sortedEntries == null) {
 			return; // ok: no child to remove
 		}
-		val childName = path.lastName();
+		val childName = path.last();
 		parent.removeEntry(childName);
 	}
 
@@ -207,7 +206,7 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 	}
 	
 	public void put_strictNoCreateParent(NodeNamesPath path, NodeData data) {
-		if (path == null || path.pathElements.length == 0) {
+		if (path == null || path.size() == 0) {
 			put_root(data);
 			return;
 		}
@@ -219,15 +218,14 @@ public class InMem_TreeData extends TreeData implements IReadTreeData, IWriteTre
 	}
 
 	public InMemNodeEntry resolveParent(NodeNamesPath path) {
-		val parentPathEltCount = path.pathElements.length - 1;
+		val parentPathEltCount = path.size() - 1;
 		return resolveUpTo(path, parentPathEltCount);
 	}
 	
 	public InMemNodeEntry resolveUpTo(NodeNamesPath path, int pathEltCount) {
-		val pathElts = path.pathElements;
 		InMemNodeEntry currEntry = rootNode;
 		for(int i = 0; i < pathEltCount; i++) {
-			val pathElt = pathElts[i];
+			val pathElt = path.get(i);
 			val foundChildEntry = currEntry.getEntry(pathElt);
 			if (foundChildEntry == null) {
 				return null; 

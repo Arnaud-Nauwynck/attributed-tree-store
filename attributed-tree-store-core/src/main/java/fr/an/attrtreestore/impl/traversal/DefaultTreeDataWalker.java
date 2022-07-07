@@ -1,6 +1,7 @@
 package fr.an.attrtreestore.impl.traversal;
 
-import fr.an.attrtreestore.api.NodeNamesPath;
+import org.path4j.NodeNamesPath;
+
 import fr.an.attrtreestore.api.TreeData;
 import fr.an.attrtreestore.api.traversal.NodeTreeDataVisitor;
 import fr.an.attrtreestore.api.traversal.TreeDataWalker;

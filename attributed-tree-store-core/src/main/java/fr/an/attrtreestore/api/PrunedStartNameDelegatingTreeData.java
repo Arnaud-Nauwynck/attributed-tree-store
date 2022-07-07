@@ -1,5 +1,8 @@
 package fr.an.attrtreestore.api;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNamesPath;
+
 import lombok.Getter;
 
 public class PrunedStartNameDelegatingTreeData<TTree extends TreeData & IWriteTreeData> extends TreeData implements IWriteTreeData {

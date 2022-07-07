@@ -1,6 +1,6 @@
 package fr.an.attrtreestore.api.partial;
 
-import fr.an.attrtreestore.api.NodeNamesPath;
+import org.path4j.NodeNamesPath;
 
 /**
  * cf sub-classes implementations:

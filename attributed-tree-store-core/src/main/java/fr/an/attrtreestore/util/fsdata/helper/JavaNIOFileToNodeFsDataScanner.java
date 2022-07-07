@@ -11,11 +11,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNameEncoder;
+import org.path4j.NodeNamesPath;
+
 import com.google.common.collect.ImmutableMap;
 
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.util.fsdata.NodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.DirNodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.FileNodeFsData;
@@ -96,8 +97,8 @@ public class JavaNIOFileToNodeFsDataScanner {
 		@Override
 		public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
 			// pop and add dir to parent
-			boolean isRoot = (currDirBuilder.path.pathElementCount() == 0); 
-			NodeName name = (isRoot)? rootName : currDirBuilder.path.lastName();
+			boolean isRoot = (currDirBuilder.path.size() == 0); 
+			NodeName name = (isRoot)? rootName : currDirBuilder.path.last();
 			NodeNamesPath path = (isRoot)? NodeNamesPath.ROOT : currDirBuilder.path;
 			DirNodeFsData dirNode = new DirNodeFsData(name, 
 					currDirBuilder.creationTime, currDirBuilder.lastModifiedTime, currDirBuilder.extraFsAttrs,

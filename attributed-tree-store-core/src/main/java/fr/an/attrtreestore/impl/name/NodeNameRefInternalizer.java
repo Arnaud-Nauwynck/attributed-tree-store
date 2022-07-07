@@ -1,10 +1,11 @@
 package fr.an.attrtreestore.impl.name;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNamesPath;
+
 import com.google.common.collect.ImmutableSet;
 
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.TreeData;
 import fr.an.attrtreestore.api.traversal.NodeTreeDataVisitor.SimpleNodeTreeDataVisitor;
 import fr.an.attrtreestore.impl.traversal.DefaultTreeDataWalker;

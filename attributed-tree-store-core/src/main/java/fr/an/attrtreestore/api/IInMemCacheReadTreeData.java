@@ -1,5 +1,7 @@
 package fr.an.attrtreestore.api;
 
+import org.path4j.NodeNamesPath;
+
 import fr.an.attrtreestore.api.override.OverrideNodeData;
 
 public interface IInMemCacheReadTreeData {

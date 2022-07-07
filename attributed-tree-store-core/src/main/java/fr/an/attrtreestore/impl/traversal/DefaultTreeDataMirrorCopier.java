@@ -4,10 +4,11 @@ import java.util.LinkedHashSet;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNamesPath;
+
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.TreeData;
 import fr.an.attrtreestore.api.traversal.NodeTreeDataDiffVisitor;
 import fr.an.attrtreestore.api.traversal.TreeDataMirrorCopier;

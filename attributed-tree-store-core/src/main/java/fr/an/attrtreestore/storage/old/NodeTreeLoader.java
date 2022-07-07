@@ -2,7 +2,7 @@ package fr.an.attrtreestore.storage.old;
 
 import java.util.concurrent.CompletableFuture;
 
-import fr.an.attrtreestore.api.NodeName;
+import org.path4j.NodeName;
 
 public abstract class NodeTreeLoader {
 

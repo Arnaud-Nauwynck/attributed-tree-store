@@ -2,6 +2,8 @@ package fr.an.attrtreestore.api;
 
 import java.util.concurrent.CompletableFuture;
 
+import org.path4j.NodeNamesPath;
+
 public interface IAsyncWriteTreeData {
 
 	// TODO ... need to provide function to fill intermediate unknown nodes..

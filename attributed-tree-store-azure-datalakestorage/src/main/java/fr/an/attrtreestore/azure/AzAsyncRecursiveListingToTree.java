@@ -7,6 +7,9 @@ import java.util.Map;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNameEncoder;
+import org.path4j.NodeNamesPath;
 import org.simplestorage4j.api.util.LoggingCounter;
 import org.simplestorage4j.api.util.LoggingCounter.LoggingCounterParams;
 
@@ -19,9 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeAttr;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.val;
@@ -89,7 +89,7 @@ public class AzAsyncRecursiveListingToTree {
 			val childPathItems = AzDatalakeStoreUtils.blocking_retryableAzQueryListPaths(srcBaseDir, azQueryListPathCounter, maxRetryAzQueryListPath);
 			
 			val childExtract = childPathItemsExtractFor(childPathItems);
-			val name = destBasePath.lastNameOrEmpty();
+			val name = destBasePath.lastOrEmpty();
 			nodeData = dirPropsAndPathItemsToNodeData(name, pathProps, childPathItems);
 			destTree.putWithChild(destBasePath, nodeData, childExtract.foundChildDatas.values());
 
@@ -251,7 +251,7 @@ public class AzAsyncRecursiveListingToTree {
 			NodeNamesPath destPath,
 			DataLakeDirectoryAsyncClient dirClient
 			) {
-		val name = destPath.lastNameOrEmpty();
+		val name = destPath.lastOrEmpty();
 
 		// ** az query listPath **
 		val nodeDataAndPathItems = dirPathItemToNodeData(pathItem, name, dirClient);

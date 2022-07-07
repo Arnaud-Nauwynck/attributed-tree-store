@@ -5,6 +5,9 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.util.Collection;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNameEncoder;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -12,9 +15,7 @@ import com.google.common.collect.ImmutableSet;
 import fr.an.attrtreestore.api.NodeAttr;
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeData.NodeDataInternalFields;
-import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.api.attrinfo.AttrEvalStatus;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import lombok.AllArgsConstructor;
 import lombok.val;
 

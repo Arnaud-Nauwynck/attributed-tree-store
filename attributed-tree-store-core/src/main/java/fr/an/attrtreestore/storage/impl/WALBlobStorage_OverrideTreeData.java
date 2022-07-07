@@ -1,12 +1,14 @@
 package fr.an.attrtreestore.storage.impl;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,15 +16,15 @@ import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNameEncoder;
+import org.path4j.NodeNamesPath;
 import org.simplestorage4j.api.BlobStorage;
 
 import com.google.common.io.CountingInputStream;
 
 import fr.an.attrtreestore.api.NodeData;
 import fr.an.attrtreestore.api.NodeData.NodeDataInternalFields;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.api.override.OverrideNodeData;
 import fr.an.attrtreestore.api.override.OverrideNodeStatus;
 import fr.an.attrtreestore.api.override.OverrideTreeData;
@@ -223,15 +225,14 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	
 	@Override
 	public OverrideNodeData getOverride(NodeNamesPath path) {
-		val pathElts = path.pathElements;
-		val pathEltCount = pathElts.length;
+		val pathEltCount = path.size();
 		OverrideNodeEntry currEntry = rootEntry;
 		// implicit.. NodeName currName = null;
 		for(int i = 0; i < pathEltCount; i++) {
 			if (currEntry.child == null) {
 				return OverrideNodeData.NOT_OVERRIDEN; 
 			}
-			val pathElt = pathElts[i];
+			val pathElt = path.get(i);
 			val foundChild = currEntry.child.get(pathElt);
 			if (foundChild == null) {
 				return OverrideNodeData.NOT_OVERRIDEN;
@@ -252,7 +253,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 				// need reload data from cache, using filePos
 				// TOCHANGE.. should return a Future<NodeOverrideData> ??
 				// current impl: blocking read
-			    val currName = path.lastNameOrEmpty();
+			    val currName = path.lastOrEmpty();
 
 				// **** The Biggy: IO Read (maybe remote) ***
 				val reloadedData = doReadData(currEntry, currName);
@@ -433,11 +434,10 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	// ------------------------------------------------------------------------
 	
 	protected OverrideNodeEntry resolveMkEntry(NodeNamesPath path, boolean setIntermediateEntryUpdated) {
-		val pathElts = path.pathElements;
-		val pathEltCount = pathElts.length;
+		val pathEltCount = path.size();
 		OverrideNodeEntry currEntry = rootEntry;
 		for(int i = 0; i < pathEltCount; i++) {
-			val pathElt = pathElts[i];
+			val pathElt = path.get(i);
 			synchronized(currEntry) {
 				if (setIntermediateEntryUpdated && i+1 < pathEltCount) {
 					if (currEntry.overrideStatus != OverrideNodeStatus.UPDATED) {
@@ -468,11 +468,10 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 	}
 	
 	protected OverrideNodeEntry resolveMkEntry_Deleted(NodeNamesPath path) {
-		val pathElts = path.pathElements;
-		val pathEltCount = pathElts.length;
+		val pathEltCount = path.size();
 		OverrideNodeEntry currEntry = rootEntry;
 		for(int i = 0; i < pathEltCount; i++) {
-			val pathElt = pathElts[i];
+			val pathElt = path.get(i);
 			synchronized(currEntry) {
 				if (i+1 < pathEltCount) {
 					if (currEntry.overrideStatus == OverrideNodeStatus.DELETED) {
@@ -536,7 +535,7 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 						// take current filePos
 						long dataFilePos = fromFilePos + inCounter.getCount();
 								
-						val name = path.lastNameOrEmpty();
+						val name = path.lastOrEmpty();
 						val data = attrDataEncoderHelper.readNodeData_noName(in, name);
 
 						// current filePos
@@ -762,5 +761,43 @@ public class WALBlobStorage_OverrideTreeData extends OverrideTreeData {
 			this.writerStopped = true;
 		}
 	}
+
+    public void dumpTo(String storageFileName) {
+        try (val out = new BufferedOutputStream(blobStorage.openWrite(storageFileName, false))) {
+            val pout = new PrintStream(out);
+            recursiveDumpTo(pout, NodeNamesPath.ROOT, rootEntry);
+        } catch (IOException ex) {
+            throw new RuntimeException("Failed to dump", ex);
+        }
+    }
+
+    private void recursiveDumpTo(PrintStream out, NodeNamesPath currPath, OverrideNodeEntry currEntry) {
+        boolean recurse = true;
+        switch(currEntry.overrideStatus) {
+        case DELETED:
+            out.append('-');
+            out.print(currPath.toPathSlash());
+            out.print('\n');
+            recurse = false;
+            break;
+        case UPDATED:
+            out.append(' ');
+            out.print(currPath.toPathSlash());
+            // more details?
+            out.print('\n');
+            break;
+        case NOT_OVERRIDEN:
+            break;
+        }
+        if (recurse) {
+            val childMap = currEntry.child;
+            if (childMap != null) {
+                for (val childEntry: childMap.values()) {
+                    val childPath = currPath.toChild(childEntry.name);
+                    recursiveDumpTo(out, childPath, childEntry);
+                }
+            }
+        }
+    }
 
 }

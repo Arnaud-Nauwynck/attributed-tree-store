@@ -3,8 +3,9 @@ package fr.an.attrtreestore.storage.old;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 
+import org.path4j.NodeName;
+
 import fr.an.attrtreestore.api.NodeAttr;
-import fr.an.attrtreestore.api.NodeName;
 import lombok.val;
 
 /**

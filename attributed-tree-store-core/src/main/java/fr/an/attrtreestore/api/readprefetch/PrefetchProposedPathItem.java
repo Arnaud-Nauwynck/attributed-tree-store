@@ -1,6 +1,7 @@
 package fr.an.attrtreestore.api.readprefetch;
 
-import fr.an.attrtreestore.api.NodeNamesPath;
+import org.path4j.NodeNamesPath;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 

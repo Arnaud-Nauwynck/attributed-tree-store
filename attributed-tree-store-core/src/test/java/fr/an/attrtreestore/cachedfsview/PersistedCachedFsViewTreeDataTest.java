@@ -7,13 +7,15 @@ import java.util.Collections;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.path4j.NodeNameEncoder;
+import org.path4j.encoder.DefaultNodeNameEncoder;
 import org.simplestorage4j.api.BlobStorage;
+import org.simplestorage4j.api.BlobStorageGroupId;
+import org.simplestorage4j.api.BlobStorageId;
 import org.simplestorage4j.api.FileBlobStorage;
 
 import fr.an.attrtreestore.TstMkdirDirUtils;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
-import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoder;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import fr.an.attrtreestore.storage.AttrInfoIndexes;
 import fr.an.attrtreestore.storage.impl.IndexedBlobStorage_TreeNodeDataEncoder;
@@ -23,7 +25,9 @@ import lombok.val;
 public class PersistedCachedFsViewTreeDataTest {
 
 	private static final File baseDir = TstMkdirDirUtils.initMkdir("target/test-data/PersistedCacheFsViewTreeData");
-	private static final BlobStorage blobStorage = new FileBlobStorage("test-data", baseDir);
+	private static final BlobStorage blobStorage = new FileBlobStorage(
+			new BlobStorageId("test-data"), new BlobStorageGroupId("local"), 
+			"test-data", baseDir);
 	private static final AttrInfoIndexes attrIndexes; 
 	private static final NodeNameEncoder nodeNameEncoder = DefaultNodeNameEncoder.createDefault();
 	private static final AttrDataEncoderHelper attrDataEncoder; 

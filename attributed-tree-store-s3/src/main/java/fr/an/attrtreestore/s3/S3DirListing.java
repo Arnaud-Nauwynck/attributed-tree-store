@@ -10,13 +10,13 @@ import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNameEncoder;
+import org.path4j.NodeNamesPath;
 import org.simplestorage4j.api.util.LoggingCounter;
 import org.simplestorage4j.api.util.LoggingCounter.LoggingCounterParams;
 
 import fr.an.attrtreestore.api.IWriteTreeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.cachedfsview.converter.NodeFsDataToNodeDataConverter;
 import fr.an.attrtreestore.cachedfsview.converter.NodeFsDataToNodeDataConverter.DefaultNodeFsDataToNodeDataConverter;
 import fr.an.attrtreestore.storage.impl.PersistedTreeData;
@@ -83,7 +83,7 @@ public class S3DirListing {
         val startTime = System.currentTimeMillis();
         val bucketName = s3NodeFsDataProvider.getS3BucketName();
         log.info("start scan of S3 bucket " + bucketName 
-                + ((scanBasePath.pathElementCount() != 0)? " basePath: " + scanBasePath : "")
+                + ((scanBasePath.size() != 0)? " basePath: " + scanBasePath : "")
                 );
         try {
             requestInterrupt.set(false);
@@ -261,7 +261,7 @@ public class S3DirListing {
         
 
         public void pushDir(NodeNamesPath path) {
-            addChildToCurrDir(path.lastName());
+            addChildToCurrDir(path.last());
             this.currDirPath = path;
             this.currDirStack.add(new DirBuilder(path));
         }
@@ -275,8 +275,8 @@ public class S3DirListing {
         }
         
         protected void popDirs_putToTree(NodeNamesPath prevDirPath, NodeNamesPath toParentPath) {
-            val toPathElementCount = toParentPath.pathElementCount();
-            for(int i = prevDirPath.pathElementCount()-1; i >= toPathElementCount; i--) {
+            val toPathElementCount = toParentPath.size();
+            for(int i = prevDirPath.size()-1; i >= toPathElementCount; i--) {
                 popDir_putToTree();
             }
         }
@@ -304,8 +304,8 @@ public class S3DirListing {
         }
         
         protected void pushDirs(NodeNamesPath fromParentPath, NodeNamesPath toPath) {
-            val toPathElementCount = toPath.pathElementCount();
-            for(int i = fromParentPath.pathElementCount() + 1; i <= toPathElementCount; i++) {
+            val toPathElementCount = toPath.size();
+            for(int i = fromParentPath.size() + 1; i <= toPathElementCount; i++) {
                 val path = toPath.subPath(i);
                 pushDir(path);
             }

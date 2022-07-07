@@ -3,8 +3,8 @@ package fr.an.attrtreestore.util.fsdata.helper;
 import java.nio.file.Paths;
 
 import org.junit.Test;
+import org.path4j.encoder.DefaultNodeNameEncoder;
 
-import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoder;
 import lombok.val;
 
 public class JavaNIOFileToNodeFsDataScannerTest {

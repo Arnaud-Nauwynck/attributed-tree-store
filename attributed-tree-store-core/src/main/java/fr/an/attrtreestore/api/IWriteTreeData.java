@@ -2,6 +2,8 @@ package fr.an.attrtreestore.api;
 
 import java.util.Collection;
 
+import org.path4j.NodeNamesPath;
+
 import lombok.val;
 
 public interface IWriteTreeData extends IReadTreeData { // TOADD should not extends interface IReadTreeData... but when not available, simply throw ex

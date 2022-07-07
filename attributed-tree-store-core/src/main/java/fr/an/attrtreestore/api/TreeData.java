@@ -1,5 +1,7 @@
 package fr.an.attrtreestore.api;
 
+import org.path4j.NodeNamesPath;
+
 public abstract class TreeData implements IReadTreeData { //, IWriteTreeData
 
 	@Override

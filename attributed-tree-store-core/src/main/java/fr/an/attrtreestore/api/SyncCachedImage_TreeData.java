@@ -2,6 +2,8 @@ package fr.an.attrtreestore.api;
 
 import java.util.concurrent.Future;
 
+import org.path4j.NodeNamesPath;
+
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;

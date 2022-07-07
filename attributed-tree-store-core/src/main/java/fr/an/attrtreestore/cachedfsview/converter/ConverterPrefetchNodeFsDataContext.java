@@ -1,6 +1,7 @@
 package fr.an.attrtreestore.cachedfsview.converter;
 
-import fr.an.attrtreestore.api.NodeNamesPath;
+import org.path4j.NodeNamesPath;
+
 import fr.an.attrtreestore.api.readprefetch.PrefetchNodeDataContext;
 import fr.an.attrtreestore.api.readprefetch.PrefetchProposedPathItem;
 import fr.an.attrtreestore.cachedfsview.PrefetchNodeFsDataContext;

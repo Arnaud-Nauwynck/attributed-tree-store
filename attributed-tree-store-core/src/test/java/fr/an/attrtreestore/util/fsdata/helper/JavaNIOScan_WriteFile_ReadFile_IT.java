@@ -13,15 +13,17 @@ import java.util.stream.Collectors;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.path4j.NodeNameEncoder;
+import org.path4j.encoder.DefaultNodeNameEncoder;
 import org.simplestorage4j.api.BlobStorage;
+import org.simplestorage4j.api.BlobStorageGroupId;
+import org.simplestorage4j.api.BlobStorageId;
 import org.simplestorage4j.api.FileBlobStorage;
 
 import fr.an.attrtreestore.TstMkdirDirUtils;
 import fr.an.attrtreestore.api.ROCached_TreeData.IndexedBlobStorageInitMode;
 import fr.an.attrtreestore.api.TreeData;
 import fr.an.attrtreestore.api.attrinfo.AttrInfoRegistry;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
-import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoder;
 import fr.an.attrtreestore.impl.traversal.CounterNodeTreeDataVisitor;
 import fr.an.attrtreestore.impl.traversal.CounterNodeTreeDataVisitor.TreeCount;
 import fr.an.attrtreestore.impl.traversal.DefaultTreeDataWalker;
@@ -42,7 +44,9 @@ public class JavaNIOScan_WriteFile_ReadFile_IT {
 	private static final AttrDataEncoderHelper attrDataEncoderHelper = new AttrDataEncoderHelper(attrIndexes, nodeNameEncoder);
 	private static final IndexedBlobStorage_TreeNodeDataEncoder treeDataEncoder = new IndexedBlobStorage_TreeNodeDataEncoder(attrDataEncoderHelper); 
 	private static final File baseDir = TstMkdirDirUtils.initMkdir("target/test-data/JavaNIOScan_WriteFile_ReadFile_IT");
-	private static final BlobStorage blobStorage = new FileBlobStorage("test-data", baseDir);
+	private static final BlobStorage blobStorage = new FileBlobStorage(
+			new BlobStorageId("test-data"), new BlobStorageGroupId("local"), 
+			"test-data", baseDir);
 	
 	@Test
 	public void testWriteRecursiveNode_rootDir1() throws Exception {

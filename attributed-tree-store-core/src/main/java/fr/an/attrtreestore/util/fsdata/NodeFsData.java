@@ -2,10 +2,11 @@ package fr.an.attrtreestore.util.fsdata;
 
 import java.util.TreeSet;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNamesPath;
+
 import com.google.common.collect.ImmutableMap;
 
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import lombok.Getter;
 
 @Getter

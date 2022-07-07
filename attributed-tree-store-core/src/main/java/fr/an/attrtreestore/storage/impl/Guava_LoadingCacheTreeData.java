@@ -2,13 +2,14 @@ package fr.an.attrtreestore.storage.impl;
 
 import java.util.concurrent.ExecutionException;
 
+import org.path4j.NodeNamesPath;
+
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 
 import fr.an.attrtreestore.api.IReadTreeData;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.TreeData;
 import lombok.val;
 

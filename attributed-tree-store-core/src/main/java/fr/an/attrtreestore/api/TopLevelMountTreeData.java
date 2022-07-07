@@ -1,10 +1,13 @@
 package fr.an.attrtreestore.api;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
+
+import org.path4j.NodeName;
+import org.path4j.NodeNamesPath;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import lombok.val;
 
@@ -76,10 +79,10 @@ public class TopLevelMountTreeData<TTree extends TreeData & IWriteTreeData> exte
 	
 	@Override
 	public NodeData get(NodeNamesPath path) {
-		if (path.pathElements.length == 0) {
+		if (path.size() == 0) {
 			return rootData;
 		}
-		NodeName firstName = path.pathElements[0]; 
+		val firstName = path.get(0);
 		val subTree = mountTrees.get(firstName);
 		if (subTree == null) {
 			return null;
@@ -90,10 +93,10 @@ public class TopLevelMountTreeData<TTree extends TreeData & IWriteTreeData> exte
 
 	@Override
 	public void put(NodeNamesPath path, NodeData data) {
-		if (path.pathElements.length == 0) {
+		if (path.size() == 0) {
 			throw new UnsupportedOperationException();
 		}
-		NodeName firstName = path.pathElements[0]; 
+		NodeName firstName = path.get(0);
 		val subTree = mountTrees.get(firstName);
 		if (subTree == null) {
 			throw new IllegalArgumentException();
@@ -104,10 +107,10 @@ public class TopLevelMountTreeData<TTree extends TreeData & IWriteTreeData> exte
 
 	@Override
 	public void remove(NodeNamesPath path) {
-		if (path.pathElements.length == 0) {
+		if (path.size() == 0) {
 			throw new UnsupportedOperationException();
 		}
-		NodeName firstName = path.pathElements[0]; 
+		NodeName firstName = path.get(0);
 		val subTree = mountTrees.get(firstName);
 		if (subTree == null) {
 			return; // do nothing?

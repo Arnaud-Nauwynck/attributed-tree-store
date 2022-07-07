@@ -4,8 +4,9 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+import org.path4j.NodeName;
+
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.storage.AttrDataEncoderHelper;
 import lombok.AllArgsConstructor;
 import lombok.val;

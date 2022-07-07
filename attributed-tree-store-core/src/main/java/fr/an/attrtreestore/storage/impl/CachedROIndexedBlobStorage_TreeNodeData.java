@@ -1,7 +1,5 @@
 package fr.an.attrtreestore.storage.impl;
 
-import com.google.common.io.CountingInputStream;
-
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
@@ -10,12 +8,14 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Random;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNamesPath;
 import org.simplestorage4j.api.BlobStorage;
+
+import com.google.common.io.CountingInputStream;
 
 import fr.an.attrtreestore.api.IReadTreeData;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.ROCached_TreeData;
 import fr.an.attrtreestore.storage.impl.IndexedBlobStorage_TreeNodeDataEncoder.NodeDataAndChildFilePos;
 import fr.an.attrtreestore.util.MemoryWarningSystem;
@@ -181,12 +181,11 @@ public class CachedROIndexedBlobStorage_TreeNodeData extends ROCached_TreeData
 	// ------------------------------------------------------------------------
 	
 	@Override
-	public NodeData get(NodeNamesPath path) {
-		val pathElts = path.pathElements;
-		val pathEltCount = pathElts.length;
+	public NodeData get(final NodeNamesPath path) {
+		val pathEltCount = path.size();
 		CachedNodeEntry currEntry = rootNode;
 		for(int i = 0; i < pathEltCount; i++) {
-			val pathElt = pathElts[i];
+			val pathElt = path.get(i);
 			val childIdx = currEntry.findChildIndex(pathElt);
 			if (childIdx < 0) {
 				return null; // Node not found 

@@ -5,6 +5,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNameEncoder;
+import org.path4j.NodeNamesPath;
 import org.simplestorage4j.api.util.LoggingCounter;
 
 import com.azure.core.http.rest.PagedIterable;
@@ -15,9 +18,6 @@ import com.azure.storage.file.datalake.models.PathProperties;
 import com.google.common.collect.ImmutableMap;
 
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.api.readprefetch.PrefetchNodeDataContext;
 import fr.an.attrtreestore.api.readprefetch.PrefetchProposedPathItem;
 import fr.an.attrtreestore.cachedfsview.NodeFsDataProvider;
@@ -104,7 +104,7 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
             azPathProps = doRetryableAzQueryPathProperties(pathSlash, pathDirClient);
         }
 
-        val name = (path.pathElementCount() > 0)? path.lastName() : NodeName.EMPTY;
+        val name = (path.size() > 0)? path.last() : NodeName.EMPTY;
         long creationTime = AzDatalakeStoreUtils.toMillis(azPathProps.getCreationTime());
         long lastModifiedTime = AzDatalakeStoreUtils.toMillis(azPathProps.getLastModified());
         val extraFsAttrs = ImmutableMap.<String,Object>of(
@@ -184,7 +184,7 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
     
     private NodeFsData filePathItemToIncompleteFsData(NodeNamesPath path, PathItem src, long refreshTimeMillis) {
         if (src.isDirectory()) throw new IllegalStateException();
-        val name = path.lastNameOrEmpty();
+        val name = path.lastOrEmpty();
         long lastModified = AzDatalakeStoreUtils.toMillis(src.getLastModified());
         val fileLength = src.getContentLength();
         // ignored fields available:
@@ -205,7 +205,7 @@ public class AzureStorageNodeFsDataProvider extends NodeFsDataProvider {
     private NodeFsData dirPathItemToIncompleteFsData(NodeNamesPath path, PathItem src, long refreshTimeMillis,
     		TreeSet<NodeName> childNames) {
         if (src.isDirectory()) throw new IllegalStateException();
-        val name = path.lastNameOrEmpty();
+        val name = path.lastOrEmpty();
         long lastModified = AzDatalakeStoreUtils.toMillis(src.getLastModified());
         // ignored fields available:
         //      String eTag;

@@ -3,6 +3,7 @@ package fr.an.attrtreestore.storage.impl;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.path4j.NodeNamesPath;
 import org.simplestorage4j.api.BlobStorage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,7 +11,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import fr.an.attrtreestore.api.IInMemCacheReadTreeData;
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.ROCached_TreeData;
 import fr.an.attrtreestore.api.ROCached_TreeData.IndexedBlobStorageInitMode;
 import fr.an.attrtreestore.api.TreeData;

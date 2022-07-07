@@ -4,13 +4,14 @@ import java.util.TreeSet;
 
 import javax.annotation.Nonnull;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNamesPath;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import fr.an.attrtreestore.api.NodeAttr;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.util.fsdata.NodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.DirNodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.FileNodeFsData;

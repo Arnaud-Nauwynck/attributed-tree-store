@@ -2,14 +2,14 @@ package fr.an.attrtreestore.storage.api;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.path4j.NodeName;
+import org.path4j.NodeNameEncoder;
+import org.path4j.NodeNamesPath;
+import org.path4j.encoder.DefaultNodeNameEncoder;
 
 import com.google.common.collect.ImmutableSet;
 
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
-import fr.an.attrtreestore.impl.name.DefaultNodeNameEncoder;
 import fr.an.attrtreestore.storage.impl.InMem_TreeData;
 import lombok.val;
 

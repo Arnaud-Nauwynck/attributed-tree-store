@@ -1,6 +1,7 @@
 package fr.an.attrtreestore.util.fsdata.helper;
 
-import fr.an.attrtreestore.api.NodeNamesPath;
+import org.path4j.NodeNamesPath;
+
 import fr.an.attrtreestore.util.fsdata.NodeFsData.DirNodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.FileNodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsDataVisitor;

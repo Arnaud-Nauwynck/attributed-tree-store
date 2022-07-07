@@ -2,8 +2,9 @@ package fr.an.attrtreestore.api.partial;
 
 import java.util.Set;
 
+import org.path4j.NodeName;
+
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor

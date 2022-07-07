@@ -6,8 +6,8 @@ import java.net.URISyntaxException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.path4j.NodeNameEncoder;
 
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.cachedfsview.NodeFsDataProvider;
 import fr.an.attrtreestore.cachedfsview.NodeFsDataProviderFactory;
 import lombok.RequiredArgsConstructor;

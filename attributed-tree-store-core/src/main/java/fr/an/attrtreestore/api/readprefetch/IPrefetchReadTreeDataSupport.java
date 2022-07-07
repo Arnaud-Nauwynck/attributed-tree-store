@@ -1,7 +1,8 @@
 package fr.an.attrtreestore.api.readprefetch;
 
+import org.path4j.NodeNamesPath;
+
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeNamesPath;
 
 public interface IPrefetchReadTreeDataSupport {
 

@@ -8,12 +8,12 @@ import java.util.Date;
 import java.util.List;
 import java.util.TreeSet;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNameEncoder;
+import org.path4j.NodeNamesPath;
 import org.simplestorage4j.s3.S3Client;
 
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import fr.an.attrtreestore.api.readprefetch.PrefetchNodeDataContext;
 import fr.an.attrtreestore.api.readprefetch.PrefetchProposedPathItem;
 import fr.an.attrtreestore.cachedfsview.NodeFsDataProvider;
@@ -70,7 +70,7 @@ public class S3NodeFsDataProvider extends NodeFsDataProvider {
     public NodeFsData queryNodeFsData(NodeNamesPath path, PrefetchNodeFsDataContext prefetchCtx) {
         NodeFsData res;
         val pathText = path.toPathSlash();
-        val name = path.lastNameOrEmpty();
+        val name = path.lastOrEmpty();
         String s3Prefix = pathText; // may add convert? 
         if (! s3Prefix.endsWith("/")) {
             s3Prefix += "/";
@@ -130,7 +130,7 @@ public class S3NodeFsDataProvider extends NodeFsDataProvider {
             }
         }
 
-        val name = path.lastNameOrEmpty();
+        val name = path.lastOrEmpty();
         val res = new DirNodeFsData(name, creationTime, lastModifiedTime, extraFsAttrs, childNames);
         return res;
     }
@@ -229,7 +229,7 @@ public class S3NodeFsDataProvider extends NodeFsDataProvider {
             S3PrefetchProposedPathItem s3ProposedPathItem) {
         val s3ObjectSummary = s3ProposedPathItem.s3ObjectSummary;
         val path = s3ProposedPathItem.getPath();
-        val name = path.lastNameOrEmpty();
+        val name = path.lastOrEmpty();
         val fsData = s3ObjectSummaryToFileNodeFsData(name, s3ObjectSummary);
 
         val refreshTimeMillis = s3ProposedPathItem.getRefreshTimeMillis();

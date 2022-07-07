@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNameEncoder;
+import org.path4j.NodeNamesPath;
 import org.simplestorage4j.api.util.LoggingCounter;
 import org.simplestorage4j.api.util.LoggingCounter.LoggingCounterParams;
 
@@ -18,9 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeAttr;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.val;
@@ -82,7 +82,7 @@ public class AzRecursiveListingToTree {
 			// ** az query listPaths **
 			val pathItems = AzDatalakeStoreUtils.retryableAzQueryListPaths(srcBaseDir, azQueryListPathCounter, maxRetryAzQueryListPath);
 			
-			val name = destBasePath.lastNameOrEmpty();
+			val name = destBasePath.lastOrEmpty();
 			nodeData = dirPropsAndPathItemsToNodeData(name, pathProps, pathItems);
 			destTree.put(destBasePath, nodeData);
 
@@ -208,7 +208,7 @@ public class AzRecursiveListingToTree {
 			NodeNamesPath destPath,
 			DataLakeDirectoryClient parentDirClient
 			) {
-		val name = destPath.lastNameOrEmpty();
+		val name = destPath.lastOrEmpty();
 		if (pathItem.isDirectory()) {
 			val dirClient = parentDirClient.getSubdirectoryClient(name.toText());
 			// ** az query listPath **

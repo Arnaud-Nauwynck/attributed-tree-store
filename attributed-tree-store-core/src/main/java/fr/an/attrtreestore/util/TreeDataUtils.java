@@ -3,10 +3,11 @@ package fr.an.attrtreestore.util;
 import java.util.List;
 import java.util.Map;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNamesPath;
+
 import fr.an.attrtreestore.api.IReadTreeData;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import lombok.val;
 
 public class TreeDataUtils {

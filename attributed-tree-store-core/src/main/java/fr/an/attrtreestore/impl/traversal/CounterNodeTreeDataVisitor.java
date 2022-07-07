@@ -1,7 +1,8 @@
 package fr.an.attrtreestore.impl.traversal;
 
+import org.path4j.NodeNamesPath;
+
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.traversal.NodeTreeDataVisitor;
 import lombok.Getter;
 import lombok.val;

@@ -1,6 +1,7 @@
 package fr.an.attrtreestore.storage.old;
 
-import fr.an.attrtreestore.api.NodeName;
+import org.path4j.NodeName;
+
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor

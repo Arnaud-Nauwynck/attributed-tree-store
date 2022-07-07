@@ -1,7 +1,8 @@
 package fr.an.attrtreestore.storage.impl;
 
+import org.path4j.NodeNamesPath;
+
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeNamesPath;
 import fr.an.attrtreestore.api.override.OverrideNodeData;
 import fr.an.attrtreestore.api.override.OverrideTreeData;
 

@@ -8,6 +8,9 @@ import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNameEncoder;
+import org.path4j.NodeNamesPath;
 import org.simplestorage4j.api.util.LoggingCounter;
 import org.simplestorage4j.api.util.LoggingCounter.LoggingCounterParams;
 
@@ -18,9 +21,6 @@ import com.google.common.collect.ImmutableSet;
 
 import fr.an.attrtreestore.api.IWriteTreeData;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
-import fr.an.attrtreestore.api.NodeNamesPath;
-import fr.an.attrtreestore.api.name.NodeNameEncoder;
 import lombok.Getter;
 import lombok.val;
 import lombok.extern.slf4j.Slf4j;
@@ -209,7 +209,7 @@ public class AsyncParallelAzRecursiveListingToTree extends AzAsyncRecursiveListi
             NodeNamesPath destPath,
             DataLakeDirectoryAsyncClient dirClient
             ) {
-        val name = destPath.lastNameOrEmpty();
+        val name = destPath.lastOrEmpty();
         if (!pathItem.isDirectory()) {
             // should not occur?
             val nodeData = filePathItemToNodeData(pathItem, name);
@@ -291,7 +291,7 @@ public class AsyncParallelAzRecursiveListingToTree extends AzAsyncRecursiveListi
                 throw new RuntimeException(this.errorOccured); 
             }
             // complete dir listing: build Dir NodeData
-            val name = destPath.lastNameOrEmpty();
+            val name = destPath.lastOrEmpty();
             val sortedChildNames = ImmutableSet.copyOf(new TreeSet<>(childNames));
             val nodeData = dirPathItemToNodeData(pathItem, name, sortedChildNames);
             

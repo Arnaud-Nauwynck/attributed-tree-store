@@ -1,11 +1,12 @@
 package fr.an.attrtreestore.util.fsdata.helper;
 
+import org.path4j.NodeName;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import fr.an.attrtreestore.api.NodeAttr;
 import fr.an.attrtreestore.api.NodeData;
-import fr.an.attrtreestore.api.NodeName;
 import fr.an.attrtreestore.util.fsdata.NodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.DirNodeFsData;
 import fr.an.attrtreestore.util.fsdata.NodeFsData.FileNodeFsData;

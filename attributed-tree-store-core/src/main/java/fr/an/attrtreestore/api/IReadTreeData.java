@@ -3,6 +3,9 @@ package fr.an.attrtreestore.api;
 import java.util.List;
 import java.util.Map;
 
+import org.path4j.NodeName;
+import org.path4j.NodeNamesPath;
+
 import fr.an.attrtreestore.util.TreeDataUtils;
 
 public interface IReadTreeData {
